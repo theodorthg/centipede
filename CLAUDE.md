@@ -96,8 +96,45 @@ Split, und beide Teilzüge bewegen sich ab sofort unabhängig weiter.
 - **Mushroom-Feld wird pro Welle komplett neu gestreut**, statt (wie im
   Original) überlebende Pilze aus der Vorwelle zu behalten. Bewusste
   Vereinfachung fürs MVP.
-- Keine Hall-of-Fame-Bestenliste (anders als pacman/galaga) — nur ein
-  einzelner High-Score-Wert in `user://settings.cfg` (Abschnitt `hi`).
+
+## Menüs, Navigation & Hall of Fame (Stand 2026-09-17)
+
+Setzt die globale CLAUDE.md-Punkte 18 (Menü-Navigations-Konventionen) und 19
+(Hall of Fame) 1:1 um, portiert aus galagas `menus.gd`/`hall_of_fame.gd`.
+
+- **Screens**: Start (Play/Settings/High Scores/How to Play/[Exit]), Pause
+  (Resume/Settings/High Scores/How to Play/Restart/Main Menu/[Exit]),
+  Settings (+ Sound-Unterseite, jetzt in einem 420px hohen `ScrollContainer`
+  — 10 Sound-Regler + Mute-Zeile passten nicht mehr auf einmal), Hilfe
+  (2 Seiten, siehe unten), Game Over (+ Hall-of-Fame-Namenseingabe, wenn der
+  Score qualifiziert), High Scores (rein lesend).
+- **`ui_cancel` (B)** löst screenweit den als `is_cancel` markierten Button
+  aus (`_button(text, cb, is_cancel)`), unabhängig vom Fokus — EIN zentraler
+  Scan in `_unhandled_input()`, nicht pro Screen verdrahtet. Auf dem rohen
+  Pause-/Start-/Game-Over-Screen selbst gibt es bewusst KEIN
+  `is_cancel`-Ziel (wie bei galaga) — B wirkt nur auf den Unter-Screens
+  (Settings/Sound/Hilfe/High Scores), wo „Zurück" eindeutig ist.
+- **Default-Fokus** beim Screen-Wechsel: erster fokussierbarer Control,
+  `call_deferred()`. **Ausnahme Hilfe**: Fokus landet bewusst auf „Back"
+  (rechtester Button, kein Fokus-Nachbar weiter rechts) statt auf „< Prev" —
+  sonst verbraucht der erste D-Pad-rechts-Druck nur den eingebauten
+  Fokus-Wechsel zu „Next", bevor das Paging selbst drankommt.
+- **Vertikaler D-Pad-Wrap** (`_wrap_focus_vertically()`) für jeden Screen mit
+  > 2 auswählbaren Controls — außer Sound (lange scrollbare Liste, „erstes/
+  letztes Element" kein stabiles Paar).
+- **Hilfe-Paging**: `ui_left`/`ui_right` + Mausrad (Rad runter = nächste
+  Seite, wie die „Next >"-Richtung), Punkte-Indikator zwischen Prev/Next,
+  wrapt an beiden Enden (`wrapi()`) statt an den Rändern zu deaktivieren.
+- **Hall of Fame** (`hall_of_fame.gd`, `user://hall_of_fame.cfg`, Top 10):
+  Game-Over-Screen zeigt bei qualifizierendem Score ein Namensfeld (max. 8
+  Zeichen, GROSSBUCHSTABEN) + „Enter"-Button neben der Bestenliste;
+  ungenutzt gelassen (Play Again/Main Menu/Exit ohne Eingabe), wird
+  automatisch als „YOU" nachgetragen (`_maybe_auto_commit()`). Eigener
+  „High Scores"-Screen, erreichbar von Start UND Pause
+  (`show_highscores(from)`, `_return_screen`-Mechanismus wie bei
+  Settings/Hilfe). `LineEdit` fängt `ui_accept` explizit ab (Gamepad-A würde
+  sonst nichts auslösen, da `text_submitted` nur bei echtem Enter feuert).
+  Ersetzt den früheren einzelnen `user://settings.cfg`-„hi"-Wert komplett.
 
 ## Ports
 

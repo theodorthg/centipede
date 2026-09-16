@@ -11,6 +11,7 @@ const SCRIPTS := [
 	"res://field_grid.gd",
 	"res://ui_style.gd",
 	"res://game_settings.gd",
+	"res://hall_of_fame.gd",
 	"res://sound_manager.gd",
 	"res://mushroom.gd",
 	"res://bullet.gd",

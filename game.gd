@@ -51,8 +51,6 @@ var _score := 0
 var _lives := 0
 var _wave := 1
 var _next_extra := 0
-var _hi_score := 0
-
 var _mushrooms := {}          # Vector2i -> Mushroom
 var _chains: Array[CentipedeChain] = []
 var _spider: Spider = null
@@ -70,7 +68,6 @@ func _ready() -> void:
 	add_to_group("touch_layout_listeners")
 
 	_cfg = GameSettings.load_all()
-	_hi_score = _load_hi_score()
 
 	_touch = false if Input.get_connected_joypads().size() > 0 \
 		else (OS.has_feature("mobile") or DisplayServer.is_touchscreen_available())
@@ -464,12 +461,8 @@ func _add_score(n: int) -> void:
 
 func _game_over() -> void:
 	_state = State.GAMEOVER
-	var is_hi := _score > _hi_score
-	if is_hi:
-		_hi_score = _score
-		_save_hi_score(_hi_score)
 	_snd_play("game-over")
-	_menus.show_gameover(_score, is_hi)
+	_menus.show_gameover(_score, _wave)
 
 # ------------------------------------------------------------------ pause --
 func _toggle_pause() -> void:
@@ -499,19 +492,6 @@ func _snd_play(key: String) -> void:
 	var snd := get_node_or_null("/root/Snd")
 	if snd:
 		snd.play(key)
-
-# ------------------------------------------------------------ persistence --
-func _load_hi_score() -> int:
-	var c := ConfigFile.new()
-	if c.load(GameSettings.CFG_PATH) == OK:
-		return c.get_value("hi", "score", 0)
-	return 0
-
-func _save_hi_score(v: int) -> void:
-	var c := ConfigFile.new()
-	c.load(GameSettings.CFG_PATH)
-	c.set_value("hi", "score", v)
-	c.save(GameSettings.CFG_PATH)
 
 # --------------------------------------------------- landscape cabinet mode --
 func _wants_cabinet_overlay() -> bool:
