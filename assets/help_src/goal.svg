@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="980" viewBox="0 0 900 980" font-family="DejaVu Sans, 'Liberation Sans', sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a140a"/><stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="980" fill="url(#bg)"/>
+  <rect x="14" y="14" width="872" height="952" rx="18" fill="none" stroke="#39ff14" stroke-opacity="0.25" stroke-width="2"/>
+
+  <text x="450" y="76" text-anchor="middle" font-size="46" font-weight="700" fill="#39ff14" letter-spacing="4">GOAL &amp; SCORING</text>
+  <rect x="330" y="94" width="240" height="4" rx="2" fill="#39ff14"/>
+
+  <!-- Mushroom -->
+  <g transform="translate(120 190)">
+    <rect x="-4" y="18" width="8" height="30" fill="#f2fff2"/>
+    <circle cx="0" cy="0" r="32" fill="#39ff14"/>
+    <circle cx="0" cy="0" r="32" fill="none" stroke="#f2fff2" stroke-width="2"/>
+    <text x="70" y="-10" font-size="30" font-weight="700" fill="#f2fff2">Mushroom</text>
+    <text x="70" y="24" font-size="24" fill="#8fcf8f">4 hits to clear — 1 pt each hit</text>
+    <text x="70" y="54" font-size="24" fill="#8fcf8f">blocks your path and the centipede's</text>
+  </g>
+
+  <!-- Centipede -->
+  <g transform="translate(120 330)">
+    <g>
+      <circle cx="-50" cy="0" r="18" fill="#f2fff2"/>
+      <circle cx="-16" cy="0" r="18" fill="#f2fff2"/>
+      <circle cx="18" cy="0" r="18" fill="#39ff14"/>
+      <circle cx="-2" cy="-6" r="2.5" fill="#000"/>
+      <circle cx="8" cy="-6" r="2.5" fill="#000"/>
+    </g>
+    <text x="70" y="-10" font-size="30" font-weight="700" fill="#f2fff2">Centipede</text>
+    <text x="70" y="24" font-size="24" fill="#8fcf8f">head 100 pts · body segment 10 pts</text>
+    <text x="70" y="54" font-size="24" fill="#8fcf8f">a body hit splits the train in two</text>
+    <text x="70" y="84" font-size="24" fill="#8fcf8f">and leaves a fresh mushroom behind</text>
+  </g>
+
+  <!-- Spider -->
+  <g transform="translate(120 500)">
+    <g stroke="#f2fff2" stroke-width="3">
+      <line x1="-20" y1="-20" x2="-9" y2="-9"/><line x1="20" y1="-20" x2="9" y2="-9"/>
+      <line x1="-20" y1="20" x2="-9" y2="9"/><line x1="20" y1="20" x2="9" y2="9"/>
+      <line x1="-25" y1="0" x2="-12" y2="0"/><line x1="25" y1="0" x2="12" y2="0"/>
+    </g>
+    <circle cx="0" cy="0" r="16" fill="#39ff14"/>
+    <circle cx="0" cy="0" r="16" fill="none" stroke="#f2fff2" stroke-width="2"/>
+    <text x="70" y="-10" font-size="30" font-weight="700" fill="#f2fff2">Spider</text>
+    <text x="70" y="24" font-size="24" fill="#8fcf8f">bounces through the lower field, eats mushrooms</text>
+    <text x="70" y="54" font-size="24" fill="#8fcf8f">300–900 pts — more the closer it is when hit</text>
+  </g>
+
+  <!-- Flea -->
+  <g transform="translate(120 630)">
+    <circle cx="0" cy="0" r="14" fill="#f2fff2"/>
+    <circle cx="0" cy="0" r="14" fill="none" stroke="#39ff14" stroke-width="2"/>
+    <line x1="-16" y1="-14" x2="-9" y2="-6" stroke="#f2fff2" stroke-width="2"/>
+    <line x1="16" y1="-14" x2="9" y2="-6" stroke="#f2fff2" stroke-width="2"/>
+    <text x="70" y="-10" font-size="30" font-weight="700" fill="#f2fff2">Flea</text>
+    <text x="70" y="24" font-size="24" fill="#8fcf8f">drops down and seeds new mushrooms</text>
+    <text x="70" y="54" font-size="24" fill="#8fcf8f">appears once your zone runs low on cover</text>
+  </g>
+
+  <!-- Scorpion -->
+  <g transform="translate(120 750)">
+    <rect x="-24" y="-8" width="48" height="16" rx="8" fill="#f2fff2"/>
+    <rect x="-24" y="-8" width="48" height="16" rx="8" fill="none" stroke="#ff4d4d" stroke-width="2"/>
+    <line x1="24" y1="-8" x2="34" y2="-18" stroke="#f2fff2" stroke-width="3"/>
+    <line x1="24" y1="8" x2="34" y2="18" stroke="#f2fff2" stroke-width="3"/>
+    <path d="M-24 0 C -34 0, -30 -14, -40 -14" fill="none" stroke="#f2fff2" stroke-width="2"/>
+    <text x="70" y="-10" font-size="30" font-weight="700" fill="#f2fff2">Scorpion</text>
+    <text x="70" y="24" font-size="24" fill="#8fcf8f">crawls across a row, poisoning mushrooms</text>
+    <text x="70" y="54" font-size="24" fill="#ff8080">a poisoned mushroom (red) makes the</text>
+    <text x="70" y="84" font-size="24" fill="#ff8080">centipede dive straight down through it</text>
+  </g>
+
+  <rect x="60" y="850" width="780" height="2" fill="#39ff14" fill-opacity="0.25"/>
+  <text x="450" y="900" text-anchor="middle" font-size="26" font-weight="700" fill="#f2fff2">Clear every wave's centipede to advance</text>
+  <text x="450" y="934" text-anchor="middle" font-size="24" fill="#8fcf8f">don't let anything reach — or touch — you</text>
+</svg>

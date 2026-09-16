@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="980" viewBox="0 0 900 980" font-family="DejaVu Sans, 'Liberation Sans', sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a140a"/><stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="mouseBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#173317"/><stop offset="1" stop-color="#081208"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="980" fill="url(#bg)"/>
+  <rect x="14" y="14" width="872" height="952" rx="18" fill="none" stroke="#39ff14" stroke-opacity="0.25" stroke-width="2"/>
+
+  <text x="450" y="76" text-anchor="middle" font-size="52" font-weight="700" fill="#39ff14" letter-spacing="6">MOUSE</text>
+  <rect x="366" y="94" width="168" height="4" rx="2" fill="#39ff14"/>
+
+  <!-- mouse illustration -->
+  <g transform="translate(450 300)">
+    <path d="M0 -140
+             C -84 -140, -114 -70, -114 10
+             L -114 96
+             C -114 176, -60 216, 0 216
+             C 60 216, 114 176, 114 96
+             L 114 10
+             C 114 -70, 84 -140, 0 -140 Z"
+          fill="url(#mouseBody)" stroke="#39ff14" stroke-opacity="0.55" stroke-width="3"/>
+    <path d="M0 -140 L 0 -20" stroke="#39ff14" stroke-opacity="0.4" stroke-width="2"/>
+    <path d="M-108 -20 C -60 -34, 60 -34, 108 -20" fill="none" stroke="#39ff14" stroke-opacity="0.4" stroke-width="2"/>
+    <rect x="-12" y="-108" width="24" height="72" rx="10" fill="#39ff14" fill-opacity="0.7"/>
+  </g>
+
+  <!-- move / aim arrow -->
+  <g stroke="#39ff14" stroke-width="5" fill="#39ff14">
+    <line x1="230" y1="600" x2="670" y2="600"/>
+    <path d="M230 600 l 30 -16 l 0 32 Z"/>
+    <path d="M670 600 l -30 -16 l 0 32 Z"/>
+  </g>
+  <text x="450" y="654" text-anchor="middle" font-size="34" font-weight="700" fill="#f2fff2">Move  =  Drag</text>
+  <text x="450" y="690" text-anchor="middle" font-size="26" fill="#8fcf8f">the player follows the cursor 1:1</text>
+  <text x="450" y="722" text-anchor="middle" font-size="26" fill="#8fcf8f">only within your zone near the bottom</text>
+
+  <!-- left click callout -->
+  <g stroke="#5c8a5c" stroke-width="2" fill="none">
+    <path d="M60 190 L 336 302"/>
+  </g>
+  <circle cx="336" cy="302" r="6" fill="#39ff14"/>
+  <text x="60" y="130" font-size="32" font-weight="700" fill="#f2fff2">Left click</text>
+  <text x="60" y="166" font-size="26" fill="#8fcf8f">hold = autofire</text>
+
+  <!-- wheel callout -->
+  <g stroke="#5c8a5c" stroke-width="2" fill="none">
+    <path d="M840 190 L 564 302"/>
+  </g>
+  <circle cx="564" cy="302" r="6" fill="#39ff14"/>
+  <text x="840" y="130" text-anchor="end" font-size="32" font-weight="700" fill="#f2fff2">Scroll wheel</text>
+  <text x="840" y="166" text-anchor="end" font-size="26" fill="#8fcf8f">in menus: page through Help</text>
+
+  <!-- player ship at bottom -->
+  <g transform="translate(450 850)">
+    <polygon points="0,-34 30,26 0,12 -30,26" fill="#f2fff2" stroke="#39ff14" stroke-width="3"/>
+  </g>
+  <text x="450" y="920" text-anchor="middle" font-size="24" fill="#8fcf8f">keyboard / gamepad keep working alongside</text>
+</svg>

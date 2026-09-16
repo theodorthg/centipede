@@ -24,7 +24,6 @@ const SCRIPTS := [
 	"res://hud.gd",
 	"res://mute_icon.gd",
 	"res://menus.gd",
-	"res://help_diagram.gd",
 	"res://touch_controls.gd",
 	"res://game.gd",
 ]

@@ -28,7 +28,24 @@ var _return_screen: int = Screen.START
 var _touch := false
 var _cfg := {}
 var _help_page := 0
-const HELP_PAGES := 2
+
+## Image-based How-to-Play (like tetris'/galaga's ui.gd/menus.gd) — each page
+## is a full illustration rendered from assets/help_src/<file>.svg (see that
+## folder's render.sh) to assets/graphics/help/<file>.png, in centipede's own
+## black/toxic-green/white palette. Two sets, matched to how the player is
+## actually driving right now (see set_touch_context()): desktop gets
+## separate keyboard/mouse pages, touch gets one combined drag/fire page —
+## both share the "goal" page, which doesn't depend on input method.
+const HELP_DIR := "res://assets/graphics/help/"
+const HELP_DESKTOP := [
+	{"file": "keyboard", "h": "Controls — Keyboard/Gamepad"},
+	{"file": "mouse", "h": "Controls — Mouse"},
+	{"file": "goal", "h": "Goal & Scoring"},
+]
+const HELP_TOUCH := [
+	{"file": "touch", "h": "Controls — Touch"},
+	{"file": "goal", "h": "Goal & Scoring"},
+]
 
 var _panel: PanelContainer
 var _vbox: VBoxContainer
@@ -497,28 +514,29 @@ func _sound_row(snd: Node, key: String) -> HBoxContainer:
 	return row
 
 # ------------------------------------------------------------------ help --
-func _build_help() -> void:
-	_vbox.add_child(_heading("HOW TO PLAY"))
-	var diagram := Control.new()
-	diagram.custom_minimum_size = Vector2(PANEL_W - 40, 240)
-	diagram.set_script(load("res://help_diagram.gd"))
-	diagram.set("page", _help_page)
-	_vbox.add_child(diagram)
+func _help_pages() -> Array:
+	return HELP_TOUCH if _touch else HELP_DESKTOP
 
-	if _help_page == 0:
-		_vbox.add_child(_hint(
-			"Move: arrows / WASD / D-pad / drag with mouse or finger.\n" +
-			"Shoot: Space / left click / gamepad A / Fire button.\n" +
-			"Pause: P or Esc. Mute: M or gamepad Select."))
-	else:
-		_vbox.add_child(_hint(
-			"Clear the centipede as it zig-zags down through the\n" +
-			"mushrooms. Shooting a body segment splits the train and\n" +
-			"leaves a mushroom behind. The spider bounces through the\n" +
-			"lower field — shoot it for a big bonus, but don't let it\n" +
-			"(or the centipede) touch you.\n" +
-			"Tip: mute/unmute with the speaker button next to Pause,\n" +
-			"or press M / D-pad Select."))
+## Widened past the standard PANEL_W (like galaga's/tetris' _build_help()) so
+## the illustration has real room — matches _build_sound()'s own widening.
+func _build_help() -> void:
+	var pages := _help_pages()
+	var p: Dictionary = pages[_help_page]
+
+	var head := _heading(p.h)
+	head.add_theme_font_size_override("font_size", 24)
+	_vbox.add_child(head)
+	_vbox.add_child(_spacer(4))
+
+	var img := TextureRect.new()
+	img.custom_minimum_size = Vector2(430, 468)
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var path: String = HELP_DIR + str(p.file) + ".png"
+	if ResourceLoader.exists(path):
+		img.texture = load(path)
+	_vbox.add_child(img)
+	_vbox.add_child(_spacer(6))
 
 	var nav := HBoxContainer.new()
 	nav.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -528,7 +546,7 @@ func _build_help() -> void:
 	dots.alignment = BoxContainer.ALIGNMENT_CENTER
 	dots.add_theme_constant_override("separation", 8)
 	dots.custom_minimum_size = Vector2(60, 0)
-	for i in range(HELP_PAGES):
+	for i in range(pages.size()):
 		var d := ColorRect.new()
 		d.custom_minimum_size = Vector2(10, 10)
 		d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -541,11 +559,11 @@ func _build_help() -> void:
 	_help_back_btn = _button("Back", func(): _show_screen(_return_screen), true)
 	_vbox.add_child(_help_back_btn)
 
-## Wraps at both ends (like galaga's _help_go()) — with a page-dot indicator
-## now showing position, "Next" past the last page looping back to the first
-## reads as natural browsing rather than a dead end.
+## Wraps at both ends (like galaga's _help_go()) — page-dot indicator shows
+## position, "Next" past the last page looping back to the first reads as
+## natural browsing rather than a dead end.
 func _turn_help(d: int) -> void:
-	_help_page = wrapi(_help_page + d, 0, HELP_PAGES)
+	_help_page = wrapi(_help_page + d, 0, _help_pages().size())
 	_rebuild()
 
 # ---------------------------------------------------------------- input --

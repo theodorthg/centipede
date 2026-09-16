@@ -84,15 +84,12 @@ Split, und beide Teilzüge bewegen sich ab sofort unabhängig weiter.
   `res://assets/sounds/<key>.ogg`/`.wav`. `base_db`-Kalibrierung ist aktuell
   überall `0.0` (neutral) — muss nachjustiert werden, sobald echte Clips da
   sind (`CALIB_VERSION` hochzählen, wie bei galaga).
-- **Artwork fehlt** — Mushroom/Centipede/Spider/Player sind aktuell reine
-  `_draw()`-Vektorformen (giftgrün/weiß), `icon.svg` und `splash-screen.png`
-  sind Platzhalter. `assets/graphics/` ist leer angelegt für spätere Sprites.
-- **Hilfe-Seite 2 (Regeltext) kann im Kabinett-Modus (540px Fensterhöhe)
-  knapp über den unteren Fensterrand hinauslaufen**, wenn der Fließtext viele
-  Zeilen umbricht — funktional kein Problem (Panel bleibt lesbar, nichts wird
-  abgeschnitten was zur Bedienung nötig ist: Buttons liegen weiter oben),
-  aber optisch nicht perfekt zentriert. Eher kürzen oder Schriftgröße
-  reduzieren als Scroll-Container einbauen, wenn das stört.
+- **Gameplay-Artwork fehlt noch** — Mushroom/Centipede/Spider/Flea/Scorpion/
+  Player sind weiterhin reine `_draw()`-Vektorformen (giftgrün/weiß),
+  `icon.svg` und `splash-screen.png` sind Platzhalter. `assets/graphics/`
+  (das Wurzelverzeichnis, nicht `assets/graphics/help/`) ist leer angelegt
+  für spätere Sprites. Die Hilfe-Illustrationen selbst sind davon **nicht**
+  mehr betroffen — siehe unten.
 - **Mushroom-Feld wird pro Welle komplett neu gestreut**, statt (wie im
   Original) überlebende Pilze aus der Vorwelle zu behalten. Bewusste
   Vereinfachung fürs MVP.
@@ -106,8 +103,8 @@ Setzt die globale CLAUDE.md-Punkte 18 (Menü-Navigations-Konventionen) und 19
   (Resume/Settings/High Scores/How to Play/Restart/Main Menu/[Exit]),
   Settings (+ Sound-Unterseite, jetzt in einem 420px hohen `ScrollContainer`
   — 10 Sound-Regler + Mute-Zeile passten nicht mehr auf einmal), Hilfe
-  (2 Seiten, siehe unten), Game Over (+ Hall-of-Fame-Namenseingabe, wenn der
-  Score qualifiziert), High Scores (rein lesend).
+  (bildbasiert, siehe unten), Game Over (+ Hall-of-Fame-Namenseingabe, wenn
+  der Score qualifiziert), High Scores (rein lesend).
 - **`ui_cancel` (B)** löst screenweit den als `is_cancel` markierten Button
   aus (`_button(text, cb, is_cancel)`), unabhängig vom Fokus — EIN zentraler
   Scan in `_unhandled_input()`, nicht pro Screen verdrahtet. Auf dem rohen
@@ -135,6 +132,42 @@ Setzt die globale CLAUDE.md-Punkte 18 (Menü-Navigations-Konventionen) und 19
   Settings/Hilfe). `LineEdit` fängt `ui_accept` explizit ab (Gamepad-A würde
   sonst nichts auslösen, da `text_submitted` nur bei echtem Enter feuert).
   Ersetzt den früheren einzelnen `user://settings.cfg`-„hi"-Wert komplett.
+
+## Hilfe-Illustrationen (Stand 2026-09-17, ersetzt eine erste zu grobe Fassung)
+
+Erste Fassung zeichnete die Steuerungs-Diagramme klein und live per
+`Control._draw()` (eigenes `help_diagram.gd`) — Nutzer-Feedback: „nicht
+einmal die Tasten richtig dargestellt, geschweige denn die Maus". Jetzt wie
+bei **tetris/galaga** bildbasiert: handgemalte SVGs unter `assets/help_src/`,
+per `assets/help_src/render.sh` (braucht `inkscape`, von `build.sh` bereits
+vor jedem Import aufgerufen) zu 900×980-PNGs unter `assets/graphics/help/`
+gerastert, in `menus.gd::_build_help()` per `TextureRect`
+(`EXPAND_IGNORE_SIZE` + `STRETCH_KEEP_ASPECT_CENTERED`) angezeigt.
+`help_diagram.gd` wurde komplett entfernt.
+
+- **Zwei Seitensätze** wie bei galagas `_help_pages()`: Desktop
+  `[keyboard, mouse, goal]` (3 Seiten), Touch `[touch, goal]` (2 Seiten) —
+  ausgewählt über `_touch` (`set_touch_context()`, dieselbe retroaktive
+  Erkennung wie überall sonst im Projekt).
+- **`keyboard.svg`**: Pfeiltasten-Cluster + „or WASD", Space zum Schießen,
+  volles D-Pad-Kreuz + A/B-Kreise (Gamepad-Abschnitt, wie von der globalen
+  CLAUDE.md für Projekte mit Gamepad-Support verlangt), Pause- (Esc/P) und
+  Mute-Zeile (M/Select) — der Mute-Button-Mockup nutzt exakt dieselben
+  Pfad-Koordinaten wie `mute_icon.gd`, damit das Icon in der Hilfe genau so
+  aussieht wie im echten HUD.
+- **`mouse.svg`**: gezeichnete Maus (nicht nur ein Kreis), „Move = Drag"
+  samt „folgt dem Cursor 1:1"-Hinweis, Linksklick-/Mausrad-Callouts.
+- **`touch.svg`**: Telefon-Mockup mit den echten Pause-/Mute-Buttons oben
+  rechts, Drag-Pfeil in der Bewegungszone, separater „FIRE"-Kreis unten
+  rechts (entspricht `touch_controls.gd`s tatsächlicher Platzierung).
+- **`goal.svg`**: alle fünf Feld-Objekte (Mushroom/Centipede/Spider/Flea/
+  Scorpion) mit denselben Formen/Farben wie ihre echten `_draw()`-Sprites,
+  plus den tatsächlichen Punktwerten aus `game.gd` (Kopf 100/Rumpf 10,
+  Spider 300–900 gestaffelt) und dem Gift-Tauch-Hinweis.
+- **Neu erstellen nach Änderungen an Farbschema oder Steuerung**:
+  `bash assets/help_src/render.sh`, dann `--import` — die PNGs sind
+  eingecheckt (nicht gitignored, wie bei tetris/galaga), damit der
+  Web-Export sie ohne Inkscape-Abhängigkeit zur Laufzeit ausliefert.
 
 ## Ports
 

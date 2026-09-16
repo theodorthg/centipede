@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="980" viewBox="0 0 900 980" font-family="DejaVu Sans, 'Liberation Sans', sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a140a"/><stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#39ff14"/>
+    </marker>
+  </defs>
+  <rect width="900" height="980" fill="url(#bg)"/>
+  <rect x="14" y="14" width="872" height="952" rx="18" fill="none" stroke="#39ff14" stroke-opacity="0.25" stroke-width="2"/>
+
+  <text x="450" y="76" text-anchor="middle" font-size="52" font-weight="700" fill="#39ff14" letter-spacing="6">TOUCH</text>
+  <rect x="366" y="94" width="168" height="4" rx="2" fill="#39ff14"/>
+
+  <!-- phone screen -->
+  <rect x="230" y="118" width="440" height="740" rx="28" fill="#041004" stroke="#173317" stroke-width="4"/>
+  <rect x="256" y="154" width="388" height="668" rx="6" fill="#050d05"/>
+
+  <!-- pause + mute buttons top-right, matching the real HUD -->
+  <g transform="translate(516 178)">
+    <rect x="0" y="0" width="52" height="44" rx="8" fill="#39ff14" fill-opacity="0.14" stroke="#39ff14" stroke-opacity="0.55" stroke-width="2"/>
+    <text x="26" y="30" text-anchor="middle" font-size="24" fill="#f2fff2">||</text>
+  </g>
+  <g transform="translate(576 178)">
+    <rect x="0" y="0" width="52" height="44" rx="8" fill="#39ff14" fill-opacity="0.14" stroke="#39ff14" stroke-opacity="0.55" stroke-width="2"/>
+    <polygon points="19.7,18.85 23.75,18.85 29.15,13 29.15,31 23.75,25.15 19.7,25.15" fill="#f2fff2"/>
+    <path d="M34.18 15.08 A8.55 8.55 0 0 1 34.18 28.92" fill="none" stroke="#f2fff2" stroke-width="2" stroke-linecap="round"/>
+    <path d="M36.29 12.17 A12.15 12.15 0 0 1 36.29 31.83" fill="none" stroke="#f2fff2" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g stroke="#5c8a5c" stroke-width="2" fill="none"><path d="M700 264 L 572 222"/></g>
+  <text x="800" y="276" text-anchor="end" font-size="26" fill="#8fcf8f">Pause &amp; Mute buttons</text>
+
+  <!-- drag arrow inside the lower "zone" band -->
+  <rect x="256" y="674" width="388" height="120" fill="#39ff14" fill-opacity="0.06"/>
+  <g stroke="#39ff14" stroke-width="7" fill="none">
+    <line x1="316" y1="734" x2="584" y2="734" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  </g>
+  <circle cx="316" cy="734" r="22" fill="#f2fff2" fill-opacity="0.14" stroke="#f2fff2" stroke-opacity="0.35" stroke-width="2"/>
+  <circle cx="316" cy="734" r="7" fill="#f2fff2"/>
+
+  <!-- fire button, at the same height as the drag band, outside the phone
+       on the right — matches touch_controls.gd's actual bottom-right placement -->
+  <g transform="translate(716 734)">
+    <circle cx="0" cy="0" r="44" fill="#39ff14" fill-opacity="0.18" stroke="#39ff14" stroke-width="3"/>
+    <text x="0" y="6" text-anchor="middle" font-size="18" font-weight="700" fill="#f2fff2">FIRE</text>
+  </g>
+
+  <text x="450" y="924" text-anchor="middle" font-size="28" font-weight="700" fill="#f2fff2">Drag — moves the player</text>
+  <text x="450" y="956" text-anchor="middle" font-size="22" fill="#8fcf8f">within your zone · FIRE button — hold = autofire</text>
+</svg>
