@@ -25,21 +25,36 @@ nicht ersetzend). Genrevorbild:
   Default) oder **Full** (ganzes Spielfeld, eher Galaga-artig frei).
   Implementiert in `field_grid.gd` (`FieldGrid.Zone`, `zone_top_row()`) und
   live angewendet in `player.gd`/`game.gd::_apply_settings()`.
-- **MVP-Umfang**: Centipede (mit Segment-Splitting beim Treffer auf ein
-  Rumpfsegment + Pilz-Spawn an der getroffenen Zelle) + Spider. **Flea**
-  (legt neue Pilze, wenn zu wenige da sind) und **Scorpion** (vergiftet
-  Pilze, vergiftete Pilze lassen den Centipede senkrecht durchtauchen) sind
-  bewusst noch **nicht** implementiert — siehe „Offen" unten.
+- **Vollständiger Gegner-Satz** (Stand 2026-09-16, zweite Ausbaustufe nach dem
+  Web-MVP): Centipede (Segment-Splitting + Pilz-Spawn), Spider, **Flea**
+  (`flea.gd`, fällt spaltengerade senkrecht, sät dabei neue Pilze —
+  ausgelöst von `game.gd::_maybe_spawn_flea()`, sobald die Pilzdichte
+  INNERHALB der aktuellen Bewegungszone unter `FLEA_MUSHROOM_THRESHOLD`
+  fällt) und **Scorpion** (`scorpion.gd`, kriecht geradlinig durch eine Reihe
+  außerhalb der Spielerzone, vergiftet jeden gekreuzten Pilz via
+  `mushroom.gd::poison()` — rot eingefärbt). Ein Centipede-Kopf, der beim
+  Seitwärtsschritt auf einen vergifteten Pilz trifft, wendet NICHT, sondern
+  taucht spaltengerade senkrecht durch (`centipede_chain.gd`'s `_diving`),
+  bis er die unterste Reihe erreicht, und macht danach mit der zuvor
+  gehaltenen Richtung normal weiter.
 - **Farbschema**: Hintergrund Schwarz, Akzent Giftgrün (`#39ff14`,
   `UiStyle.ACCENT`), Text/Spielfiguren-Kontur Weiß. Panel-Rahmen, Button-Rahmen
   und Fokus-Rahmen konsequent giftgrün (`ui_style.gd`).
 
 ## Steuerung
 
-- **Bewegung**: Pfeiltasten/WASD (`move_*`-Actions, kontinuierlich statt
-  Grid-Snap), Maus-Drag (nur bei tatsächlicher `InputEventMouseMotion`/
-  `MouseButton`-Aktivität, siehe `player.gd`'s retroaktiver Input-Flip),
-  Finger-Drag (Touch), D-Pad/Joypad-Achsen (alles `device=-1`).
+- **Bewegung**: Pfeiltasten/WASD (`move_*`-Actions, kontinuierlich mit
+  SPEED-Deckel — bei Digital-Eingabe richtig, da es keine „aktuelle
+  Zielposition" gibt), Maus-Drag und Finger-Drag (Touch) dagegen **direktes
+  1:1-Snapping** auf die Zeigerposition (`player.gd::_snap_to()`, nur bei
+  tatsächlicher `InputEventMouseMotion`/`MouseButton`/Touch-Aktivität, siehe
+  `player.gd`'s retroaktiver Input-Flip) — **kein**
+  `move_toward()`/geschwindigkeitsgedeckeltes Verfolgen, das läse sich sonst
+  wie Nachziehen/Verzögerung, sobald der Zeiger schneller springt als das
+  Tempo-Limit (derselbe Fund/Fix wie bei Galagas `ship.gd`, jetzt als
+  Standard in die globale CLAUDE.md übernommen). Pilze blocken dabei weiter
+  pro Achse einzeln. D-Pad/Joypad-Achsen ebenfalls über die SPEED-gedeckelte
+  Variante (alles `device=-1`).
 - **Schießen**: eigene Action `shoot` (Leertaste, linke Maustaste, Gamepad A
   = `button_index=0`) — per Headless-Skript zur InputMap hinzugefügt (siehe
   globale CLAUDE.md, „`[input]`-Block nie als Text-Literal von Hand"), NICHT
@@ -63,7 +78,6 @@ Split, und beide Teilzüge bewegen sich ab sofort unabhängig weiter.
 
 ## Bekannte offene Punkte
 
-- **Flea + Scorpion** fehlen noch (siehe MVP-Hinweis oben).
 - **Sound-Dateien fehlen** — `sound_manager.gd` ist vollständig vorbereitet
   (`SOUNDS`-Map mit allen benötigten Keys, Lautstärke-Unterseite in den
   Settings funktioniert bereits), erwartet Clips unter

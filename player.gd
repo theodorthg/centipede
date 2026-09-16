@@ -5,9 +5,16 @@ extends Node2D
 ## bottom of the mushroom field (GameSettings.movement_zone / FieldGrid.Zone)
 ## — the classic-arcade trackball feel by default, widenable up to full-field
 ## free movement per the user's request. Every input method drives the same
-## position: keyboard/gamepad give a continuous direction vector, mouse/touch
-## give a "move toward this world point" target, activated only once an
-## actual event of that kind is seen (not polled) so they never fight.
+## position: keyboard/gamepad give a continuous SPEED-capped direction vector
+## (expected — digital input has no "current position" of its own), mouse/
+## touch instead SNAP directly to the input's world position every frame
+## (see _snap_to()) — the same fix already applied in galaga's ship.gd:
+## chasing the mouse/touch point with a speed-limited move_toward() reads as
+## input lag/"Nachziehen" the instant the pointer moves faster than that cap,
+## even though nothing is actually delayed. Direct assignment has no such
+## ceiling. Only obstacle-blocking (mushrooms) still limits it, per axis.
+## Activated only once an actual event of that kind is seen (not polled), so
+## the input sources never fight each other.
 
 signal fire_requested(from_pos: Vector2)
 
@@ -59,9 +66,9 @@ func _handle_movement(delta: float) -> void:
 		_touch_active = false
 		_try_move(dir.normalized() * SPEED * delta)
 	elif _touch_active:
-		_try_move((_touch_target - position).limit_length(SPEED * delta))
+		_snap_to(_touch_target)
 	elif _mouse_active:
-		_try_move((_mouse_target - position).limit_length(SPEED * 1.7 * delta))
+		_snap_to(_mouse_target)
 	_clamp_to_zone()
 
 func _try_move(step: Vector2) -> void:
@@ -73,6 +80,18 @@ func _try_move(step: Vector2) -> void:
 		var next := position + Vector2(0, step.y)
 		if not is_blocked.call(next):
 			position.y = next.y
+
+## Direct 1:1 tracking (no speed cap — see the class doc comment above for
+## why) — jumps straight to the target's x, then y, each independently
+## skipped if that would land inside a mushroom, so an obstacle still stops
+## the player on that axis without reintroducing any chase-lag on the other.
+func _snap_to(target: Vector2) -> void:
+	var tx := Vector2(target.x, position.y)
+	if not is_blocked.call(tx):
+		position.x = target.x
+	var ty := Vector2(position.x, target.y)
+	if not is_blocked.call(ty):
+		position.y = target.y
 
 func _clamp_to_zone() -> void:
 	var min_x := FieldGrid.FIELD_LEFT + RADIUS

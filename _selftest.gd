@@ -18,6 +18,8 @@ const SCRIPTS := [
 	"res://centipede_segment.gd",
 	"res://centipede_chain.gd",
 	"res://spider.gd",
+	"res://flea.gd",
+	"res://scorpion.gd",
 	"res://hud.gd",
 	"res://mute_icon.gd",
 	"res://menus.gd",
@@ -71,6 +73,19 @@ func _init() -> void:
 	fails += _expect(result.new_chain != null, "hitting a body segment splits the train")
 	fails += _expect(result.new_chain.segments.size() == 2, "split-off chain keeps the trailing segments")
 	fails += _expect(not result.empty, "front chain is not empty after the split")
+
+	# --- poison dive ---------------------------------------------------------
+	var dsegs: Array[CentipedeSegment] = [CentipedeSegment.new(), CentipedeSegment.new()]
+	var dchain := CentipedeChain.new()
+	dchain.blocked = func(c, r): return c == 1 and r == 0
+	dchain.poisoned = func(c, r): return c == 1 and r == 0
+	dchain.setup(dsegs, 2, 0, -1, 0.01)
+	dchain.step(0.011)
+	fails += _expect(dsegs[0].col == 2 and dsegs[0].row == 1,
+		"a poisoned mushroom triggers a straight dive instead of a turn")
+	fails += _expect(dchain.dir == -1, "dir stays unchanged while diving")
+	dchain.step(0.011)
+	fails += _expect(dsegs[0].row == 2, "the dive continues straight down on the next tick")
 
 	if fails == 0:
 		print("_selftest: all checks passed")

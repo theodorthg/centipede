@@ -14,6 +14,19 @@ const INITIAL_SEGMENTS := 12
 const MUSHROOM_BASE_COUNT := 32
 const SPIDER_INTERVAL_MIN := 9.0
 const SPIDER_INTERVAL_MAX := 17.0
+## Flea: replenishes cover once the player's own movement zone runs thin —
+## checked periodically rather than every frame, threshold counted only over
+## the zone's own rows (a sparse zone is what actually leaves the player
+## exposed; mushrooms further up don't help with that).
+const FLEA_CHECK_INTERVAL := 2.0
+const FLEA_MUSHROOM_THRESHOLD := 5
+const FLEA_SCORE := 200
+## Scorpion: rarer than the spider, row picked outside the player's own zone
+## (game.gd's _spawn_scorpion()) so it never itself wanders into point-blank
+## range — see scorpion.gd / mushroom.gd's poison trail.
+const SCORPION_INTERVAL_MIN := 16.0
+const SCORPION_INTERVAL_MAX := 28.0
+const SCORPION_SCORE := 1000
 
 enum State { TITLE, PLAYING, GAMEOVER }
 
@@ -21,6 +34,8 @@ const MushroomScene := preload("res://mushroom.tscn")
 const BulletScene := preload("res://bullet.tscn")
 const SegmentScene := preload("res://centipede_segment.tscn")
 const SpiderScene := preload("res://spider.tscn")
+const FleaScene := preload("res://flea.tscn")
+const ScorpionScene := preload("res://scorpion.tscn")
 
 @onready var _hud_layer: CanvasLayer = $HUD
 @onready var _hud: Hud = $HUD/Root
@@ -42,6 +57,10 @@ var _mushrooms := {}          # Vector2i -> Mushroom
 var _chains: Array[CentipedeChain] = []
 var _spider: Spider = null
 var _spider_t := 0.0
+var _flea: Flea = null
+var _flea_check_t := 0.0
+var _scorpion: Scorpion = null
+var _scorpion_t := 0.0
 
 var _last_window_size := Vector2i.ZERO
 var _cabinet_cam: Camera2D
@@ -137,6 +156,8 @@ func _start_game() -> void:
 	get_tree().paused = false
 	_paused = false
 	_spider_t = randf_range(SPIDER_INTERVAL_MIN, SPIDER_INTERVAL_MAX)
+	_flea_check_t = FLEA_CHECK_INTERVAL
+	_scorpion_t = randf_range(SCORPION_INTERVAL_MIN, SCORPION_INTERVAL_MAX)
 
 func _spawn_point() -> Vector2:
 	return Vector2(DESIGN_WIDTH * 0.5,
@@ -175,12 +196,17 @@ func _spawn_centipede() -> void:
 		segs.append(s)
 	var chain := CentipedeChain.new()
 	chain.blocked = _cell_blocked
+	chain.poisoned = _cell_poisoned
 	var interval: float = GameSettings.tick_interval(_cfg.difficulty) * pow(0.93, _wave - 1)
 	chain.setup(segs, FieldGrid.COLS - 1, 0, -1, maxf(interval, 0.045))
 	_chains.append(chain)
 
 func _cell_blocked(col: int, row: int) -> bool:
 	return _mushrooms.has(Vector2i(col, row))
+
+func _cell_poisoned(col: int, row: int) -> bool:
+	var key := Vector2i(col, row)
+	return _mushrooms.has(key) and _mushrooms[key].poisoned
 
 func _is_blocked_at(pos: Vector2) -> bool:
 	var cell := FieldGrid.pixel_to_cell(pos)
@@ -194,6 +220,12 @@ func _clear_field() -> void:
 	if is_instance_valid(_spider):
 		_spider.queue_free()
 	_spider = null
+	if is_instance_valid(_flea):
+		_flea.queue_free()
+	_flea = null
+	if is_instance_valid(_scorpion):
+		_scorpion.queue_free()
+	_scorpion = null
 	for b in get_tree().get_nodes_in_group("bullet"):
 		b.queue_free()
 
@@ -229,6 +261,17 @@ func _process(delta: float) -> void:
 			_spawn_spider()
 			_spider_t = randf_range(SPIDER_INTERVAL_MIN, SPIDER_INTERVAL_MAX)
 
+	if not is_instance_valid(_scorpion):
+		_scorpion_t -= delta
+		if _scorpion_t <= 0.0:
+			_spawn_scorpion()
+			_scorpion_t = randf_range(SCORPION_INTERVAL_MIN, SCORPION_INTERVAL_MAX)
+
+	_flea_check_t -= delta
+	if _flea_check_t <= 0.0:
+		_flea_check_t = FLEA_CHECK_INTERVAL
+		_maybe_spawn_flea()
+
 	_check_bullet_collisions()
 	_check_player_collisions()
 	_check_wave_clear()
@@ -249,6 +292,37 @@ func _spider_eat(col: int, row: int) -> void:
 		_mushrooms.erase(key)
 		m.queue_free()
 
+func _maybe_spawn_flea() -> void:
+	if is_instance_valid(_flea):
+		return
+	var zone_top: int = FieldGrid.zone_top_row(_cfg.movement_zone)
+	var count := 0
+	for key in _mushrooms:
+		if key.y >= zone_top:
+			count += 1
+	if count >= FLEA_MUSHROOM_THRESHOLD:
+		return
+	_flea = FleaScene.instantiate()
+	add_child(_flea)
+	_flea.add_mushroom = _add_mushroom
+	_flea.has_mushroom = func(c: int, r: int) -> bool: return _mushrooms.has(Vector2i(c, r))
+	_flea.setup(randi_range(0, FieldGrid.COLS - 1))
+
+func _spawn_scorpion() -> void:
+	_scorpion = ScorpionScene.instantiate()
+	add_child(_scorpion)
+	_scorpion.poison_mushroom = _poison_mushroom_at
+	var zone_top: int = FieldGrid.zone_top_row(_cfg.movement_zone)
+	var row := randi_range(2, maxi(2, zone_top - 2))
+	var dir := 1 if randf() < 0.5 else -1
+	_scorpion.setup(row, dir)
+
+func _poison_mushroom_at(col: int, row: int) -> void:
+	var key := Vector2i(col, row)
+	if _mushrooms.has(key):
+		var m: Mushroom = _mushrooms[key]
+		m.poison()
+
 func _check_bullet_collisions() -> void:
 	for b in get_tree().get_nodes_in_group("bullet"):
 		if not is_instance_valid(b):
@@ -257,7 +331,11 @@ func _check_bullet_collisions() -> void:
 			continue
 		if _bullet_vs_centipede(b):
 			continue
-		_bullet_vs_spider(b)
+		if _bullet_vs_spider(b):
+			continue
+		if _bullet_vs_flea(b):
+			continue
+		_bullet_vs_scorpion(b)
 
 func _bullet_vs_mushroom(b: Node2D) -> bool:
 	var cell := FieldGrid.pixel_to_cell(b.position)
@@ -299,17 +377,36 @@ func _bullet_vs_centipede(b: Node2D) -> bool:
 			return true
 	return false
 
-func _bullet_vs_spider(b: Node2D) -> void:
-	if not is_instance_valid(_spider):
-		return
-	if b.position.distance_to(_spider.position) >= 16.0:
-		return
+func _bullet_vs_spider(b: Node2D) -> bool:
+	if not is_instance_valid(_spider) or b.position.distance_to(_spider.position) >= 16.0:
+		return false
 	var pts := Spider.score_for_distance(_spider.position.distance_to(_player.position))
 	_add_score(pts)
 	b.queue_free()
 	_spider.queue_free()
 	_spider = null
 	_snd_play("spider-kill")
+	return true
+
+func _bullet_vs_flea(b: Node2D) -> bool:
+	if not is_instance_valid(_flea) or b.position.distance_to(_flea.position) >= Flea.RADIUS + 4.0:
+		return false
+	_add_score(FLEA_SCORE)
+	b.queue_free()
+	_flea.queue_free()
+	_flea = null
+	_snd_play("flea-kill")
+	return true
+
+func _bullet_vs_scorpion(b: Node2D) -> bool:
+	if not is_instance_valid(_scorpion) or b.position.distance_to(_scorpion.position) >= Scorpion.RADIUS * 1.6:
+		return false
+	_add_score(SCORPION_SCORE)
+	b.queue_free()
+	_scorpion.queue_free()
+	_scorpion = null
+	_snd_play("scorpion-kill")
+	return true
 
 func _add_mushroom_from_hit(cell: Vector2i) -> void:
 	if not _mushrooms.has(cell) and FieldGrid.in_bounds(cell.x, cell.y):
@@ -324,6 +421,12 @@ func _check_player_collisions() -> void:
 				_kill_player()
 				return
 	if is_instance_valid(_spider) and _spider.position.distance_to(_player.position) < 20.0:
+		_kill_player()
+		return
+	if is_instance_valid(_flea) and _flea.position.distance_to(_player.position) < Flea.RADIUS + 8.0:
+		_kill_player()
+		return
+	if is_instance_valid(_scorpion) and _scorpion.position.distance_to(_player.position) < Scorpion.RADIUS + 8.0:
 		_kill_player()
 
 func _kill_player() -> void:

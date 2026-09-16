@@ -15,15 +15,25 @@ extends RefCounted
 ## Head rule: step sideways in `dir` if the next cell is in bounds and free
 ## of a mushroom; otherwise drop one row (clamped to the field's bottom row)
 ## and reverse `dir`. Blocked() is supplied by game.gd (mushroom lookup).
+##
+## Poison dive (scorpion.gd): if the mushroom blocking the sideways step is
+## poisoned, the head does NOT turn — it sets `_diving` and then drops
+## straight down, same column, one row per tick, ignoring further mushrooms
+## in that column, until it reaches the field's bottom row. `dir` stays
+## whatever it was before the dive, so normal side-to-side movement resumes
+## in the same direction once the dive ends — matches the original arcade's
+## "poison makes it plow straight through" behavior.
 
 var segments: Array[CentipedeSegment] = []
 var dir := -1
 var tick_interval := 0.13
 var blocked: Callable = func(_c: int, _r: int) -> bool: return false
+var poisoned: Callable = func(_c: int, _r: int) -> bool: return false
 var reached_player: Callable = func(_c: int, _r: int) -> bool: return false
 
 var _path: Array[Vector2i] = []
 var _tick_t := 0.0
+var _diving := false
 
 ## Spawns a fresh chain lined up in a single row (start_col is the head's
 ## cell; the rest of the train trails behind it against `dir`, i.e. off to
@@ -50,14 +60,25 @@ func step(delta: float) -> void:
 
 func _advance() -> void:
 	var head := _path[0]
-	var next_col := head.x + dir
 	var new_cell: Vector2i
-	if next_col >= 0 and next_col < FieldGrid.COLS and not blocked.call(next_col, head.y):
-		new_cell = Vector2i(next_col, head.y)
+	if _diving:
+		if head.y >= FieldGrid.field_bottom_row():
+			_diving = false
+			new_cell = head
+		else:
+			new_cell = Vector2i(head.x, head.y + 1)
 	else:
-		var new_row: int = mini(head.y + 1, FieldGrid.field_bottom_row())
-		dir = -dir
-		new_cell = Vector2i(head.x, new_row)
+		var next_col := head.x + dir
+		var in_bounds := next_col >= 0 and next_col < FieldGrid.COLS
+		if in_bounds and not blocked.call(next_col, head.y):
+			new_cell = Vector2i(next_col, head.y)
+		elif in_bounds and poisoned.call(next_col, head.y):
+			_diving = true
+			new_cell = Vector2i(head.x, mini(head.y + 1, FieldGrid.field_bottom_row()))
+		else:
+			var new_row: int = mini(head.y + 1, FieldGrid.field_bottom_row())
+			dir = -dir
+			new_cell = Vector2i(head.x, new_row)
 	_path.push_front(new_cell)
 	if _path.size() > segments.size():
 		_path.resize(segments.size())
@@ -90,7 +111,9 @@ func hit(index: int) -> Dictionary:
 		new_chain.dir = dir
 		new_chain.tick_interval = tick_interval
 		new_chain.blocked = blocked
+		new_chain.poisoned = poisoned
 		new_chain.reached_player = reached_player
+		new_chain._diving = _diving
 		for s in tail:
 			s.is_head = false
 		tail[0].is_head = true
