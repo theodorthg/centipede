@@ -27,10 +27,21 @@ const FLEA_SCORE := 200
 const SCORPION_INTERVAL_MIN := 16.0
 const SCORPION_INTERVAL_MAX := 28.0
 const SCORPION_SCORE := 1000
-## How long a banner ("CLEARED!" between waves, "GET READY!" at the start of
-## a life) holds all gameplay logic — see _begin_transition()/hud.gd's
-## show_banner(), which fades the text in/out within this same window.
-const TRANSITION_DELAY := 2.0
+## How long each banner holds all gameplay logic — see
+## _begin_transition()/hud.gd's show_banner(), which fades the text in/out
+## within this same window. READY is longer than CLEARED: it has its own
+## "get-ready" stinger to let play out, and the player needs a beat to
+## actually LOOK at the field before losing control again is a real risk
+## (see RESPAWN_INVULN below).
+const READY_DELAY := 3.0
+const CLEARED_DELAY := 2.0
+## Extra grace period once control is handed back after a "GET READY!" —
+## on top of the freeze above, not instead of it. Without this, a hazard
+## that already happened to be sitting on/next to the fixed spawn point at
+## the moment the freeze ends would kill the player again before they can
+## move a single frame, chaining through every remaining life. See
+## player.gd's set_invulnerable()/_check_player_collisions() below.
+const RESPAWN_INVULN := 2.0
 
 enum State { TITLE, PLAYING, TRANSITION, GAMEOVER }
 
@@ -161,10 +172,12 @@ func _start_game() -> void:
 	_spider_t = randf_range(SPIDER_INTERVAL_MIN, SPIDER_INTERVAL_MAX)
 	_flea_check_t = FLEA_CHECK_INTERVAL
 	_scorpion_t = randf_range(SCORPION_INTERVAL_MIN, SCORPION_INTERVAL_MAX)
-	_begin_transition("GET READY!", TRANSITION_DELAY, _finish_start)
+	_snd_play("get-ready")
+	_begin_transition("GET READY!", READY_DELAY, _finish_start)
 
 func _finish_start() -> void:
 	_player.input_enabled = true
+	_player.set_invulnerable(RESPAWN_INVULN)
 
 func _spawn_point() -> Vector2:
 	return Vector2(DESIGN_WIDTH * 0.5,
@@ -446,7 +459,7 @@ func _spawn_score_popup(pos: Vector2, score: int) -> void:
 	p.setup(score)
 
 func _check_player_collisions() -> void:
-	if not _player.alive:
+	if not _player.alive or _player.invulnerable:
 		return
 	for chain in _chains:
 		for seg in chain.segments:
@@ -478,20 +491,22 @@ func _kill_player() -> void:
 	# point for the whole banner, not vanish-then-reappear.
 	_player.reset(_spawn_point())
 	_player.input_enabled = false
-	_begin_transition("GET READY!", TRANSITION_DELAY, _finish_respawn)
+	_snd_play("get-ready")
+	_begin_transition("GET READY!", READY_DELAY, _finish_respawn)
 
 func _finish_respawn() -> void:
 	_player.input_enabled = true
+	_player.set_invulnerable(RESPAWN_INVULN)
 
 ## Wave just cleared: hold PLAYING's per-frame logic (chain stepping, enemy
-## spawns, collisions, player input) for TRANSITION_DELAY seconds while the
+## spawns, collisions, player input) for CLEARED_DELAY seconds while the
 ## "CLEARED!" banner + fanfare play, THEN advance the wave counter and spawn
 ## the next one.
 func _check_wave_clear() -> void:
 	if _chains.is_empty():
 		_player.input_enabled = false
 		_snd_play("wave-cleared")
-		_begin_transition("CLEARED!", TRANSITION_DELAY, _finish_wave_clear)
+		_begin_transition("CLEARED!", CLEARED_DELAY, _finish_wave_clear)
 
 func _finish_wave_clear() -> void:
 	_wave += 1

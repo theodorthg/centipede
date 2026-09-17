@@ -22,17 +22,21 @@ const SPEED := 300.0
 const RADIUS := 11.0
 const FIRE_COOLDOWN := 0.22
 
+const BLINK_HZ := 8.0
+
 var zone_top_row := FieldGrid.zone_top_row(FieldGrid.Zone.HALF)
 var is_blocked: Callable = func(_p: Vector2) -> bool: return false
 var alive := true
 var input_enabled := true
 var fire_held := false
+var invulnerable := false
 
 var _fire_t := 0.0
 var _mouse_target := Vector2.ZERO
 var _mouse_active := false
 var _touch_target := Vector2.ZERO
 var _touch_active := false
+var _invuln_t := 0.0
 
 func _ready() -> void:
 	# PAUSABLE, not the parent Game node's ALWAYS — the player (like every
@@ -49,8 +53,24 @@ func reset(start_pos: Vector2) -> void:
 	_mouse_active = false
 	_touch_active = false
 
+## Grace period after regaining control (start of a life / respawn after a
+## hit) during which touch-collisions are ignored by game.gd's
+## _check_player_collisions() — see that function and the global CLAUDE.md
+## discussion of why the "GET READY!" freeze alone isn't enough: a hazard
+## that was already sitting on/next to the spawn point when the freeze ends
+## would otherwise kill the player again before they can move a single
+## frame. Movement/firing stay fully active; only the sprite blinks to
+## signal the state.
+func set_invulnerable(duration: float) -> void:
+	invulnerable = true
+	_invuln_t = duration
+
 func _process(delta: float) -> void:
 	queue_redraw()
+	if invulnerable:
+		_invuln_t -= delta
+		if _invuln_t <= 0.0:
+			invulnerable = false
 	if not (alive and input_enabled):
 		return
 	_handle_movement(delta)
@@ -137,6 +157,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	if not alive:
+		return
+	if invulnerable and int(_invuln_t * BLINK_HZ) % 2 == 0:
 		return
 	var r := RADIUS
 	var pts := PackedVector2Array([

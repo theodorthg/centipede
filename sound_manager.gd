@@ -28,13 +28,14 @@ const SOUNDS := {
 	"scorpion-kill":  ["Scorpion killed", 50, 0.0],
 	"player-death":   ["Player destroyed", 50, 0.0],
 	"extra-life":     ["Extra life", 50, 0.0],
+	"get-ready":      ["Get ready", 50, 0.0],
 	"wave-cleared":   ["Wave cleared", 50, 0.0],
 	"game-over":      ["Game over", 50, 0.0],
 }
 const ORDER := [
 	"menu-music", "shoot", "mushroom-hit", "mushroom-break", "segment-kill",
 	"spider-kill", "flea-kill", "scorpion-kill", "player-death", "extra-life",
-	"wave-cleared", "game-over",
+	"get-ready", "wave-cleared", "game-over",
 ]
 
 const LOOPING_KEYS := ["menu-music"]

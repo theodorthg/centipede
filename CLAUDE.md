@@ -78,12 +78,15 @@ Split, und beide Teilzüge bewegen sich ab sofort unabhängig weiter.
 
 ## Bekannte offene Punkte
 
-- **Sound-Dateien fehlen** — `sound_manager.gd` ist vollständig vorbereitet
-  (`SOUNDS`-Map mit allen benötigten Keys, Lautstärke-Unterseite in den
-  Settings funktioniert bereits), erwartet Clips unter
-  `res://assets/sounds/<key>.ogg`/`.wav`. `base_db`-Kalibrierung ist aktuell
-  überall `0.0` (neutral) — muss nachjustiert werden, sobald echte Clips da
-  sind (`CALIB_VERSION` hochzählen, wie bei galaga).
+- **Sound-Dateien sind vorerst nur Platzhalter** — `assets/sounds/*.wav`
+  (alle 13 Keys aus `sound_manager.gd`s `SOUNDS`-Map) sind synthetische
+  Bleeps/Noise-Bursts aus `assets/sounds/gen_placeholder_sfx.py` (reines
+  Python-stdlib, `wave`/`struct`/`math`), keine echten Audio-Aufnahmen —
+  ersetzen sobald der Nutzer echte Clips liefert (einfach dieselben
+  Dateinamen unter `res://assets/sounds/<key>.wav`/`.ogg` überschreiben, dann
+  `base_db`-Kalibrierung in `sound_manager.gd` nachjustieren und
+  `CALIB_VERSION` hochzählen, wie bei galaga). Skript erneut ausführen nach
+  Anpassung einer Definition darin: `python3 assets/sounds/gen_placeholder_sfx.py`.
 - **Gameplay-Artwork fehlt noch** — Mushroom/Centipede/Spider/Flea/Scorpion/
   Player sind weiterhin reine `_draw()`-Vektorformen (giftgrün/weiß),
   `icon.svg` und `splash-screen.png` sind Platzhalter. `assets/graphics/`
@@ -169,33 +172,65 @@ gerastert, in `menus.gd::_build_help()` per `TextureRect`
   eingecheckt (nicht gitignored, wie bei tetris/galaga), damit der
   Web-Export sie ohne Inkscape-Abhängigkeit zur Laufzeit ausliefert.
 
-## Banner-Übergänge & Punkte-Popups (Stand 2026-09-17, erweitert um
-## „GET READY!" für Spielstart/Respawn)
+## Banner-Übergänge, Respawn-Unverwundbarkeit & Punkte-Popups
+## (Stand 2026-09-17, erweitert um „GET READY!" für Spielstart/Respawn)
 
 - **Gemeinsamer Übergangs-Mechanismus** (`game.gd`, `State.TRANSITION`,
   `_begin_transition(text, duration, on_done)`): friert die normale
   PLAYING-Logik (Chain-Ticks, Gegner-Spawns, Kollisionen, Spieler-Input) für
-  `TRANSITION_DELAY` (2.0s) ein, während `_hud.show_banner(text, duration)`
-  ein zentriertes Label (`UiStyle.impact_label`-Look) ein-/hält-/ausblendet
-  (Tween, 0.3s/Rest/0.3s bei 2.0s Gesamtdauer). Nach Ablauf ruft `_process()`
-  den in `_begin_transition()` übergebenen `on_done`-Callback auf und schaltet
+  `duration` Sekunden ein, während `_hud.show_banner(text, duration)` ein
+  zentriertes Label (`UiStyle.impact_label`-Look) ein-/hält-/ausblendet
+  (Tween, 0.3s/Rest/0.3s). Nach Ablauf ruft `_process()` den in
+  `_begin_transition()` übergebenen `on_done`-Callback auf und schaltet
   zurück auf `State.PLAYING`. Pause (P/Esc) funktioniert auch während
   TRANSITION (`_toggle_pause()`/`_unhandled_input()` prüfen beide Zustände) —
   der Countdown pausiert dabei mit (`_paused`-Gate in `_process()`).
-  Zwei Verwendungen, beide über denselben Mechanismus:
-  - **„CLEARED!"** (`_check_wave_clear()`/`_finish_wave_clear()`): sobald
-    `_chains` leer ist, `_snd_play("wave-cleared")` (Fanfare) +
-    `_player.input_enabled = false` fürs Einfrieren, danach erhöht sich
-    `_wave` und `_spawn_wave()` läuft.
+  Zwei Verwendungen, beide über denselben Mechanismus, aber mit eigener
+  Dauer (`CLEARED_DELAY` bzw. `READY_DELAY` in `game.gd`):
+  - **„CLEARED!"** (`_check_wave_clear()`/`_finish_wave_clear()`,
+    `CLEARED_DELAY` = 2.0s): sobald `_chains` leer ist, `_snd_play(
+    "wave-cleared")` (Fanfare) + `_player.input_enabled = false` fürs
+    Einfrieren, danach erhöht sich `_wave` und `_spawn_wave()` läuft.
   - **„GET READY!"** (`_finish_start()` bei `_start_game()`, `_finish_respawn()`
-    bei `_kill_player()`): sowohl beim Start einer neuen Runde als auch nach
+    bei `_kill_player()`, `READY_DELAY` = 3.0s — länger als CLEARED, weil
+    hier zusätzlich der eigene `get-ready`-Sound-Stinger reinpassen muss und
+    der Spieler tatsächlich Zeit braucht, das Feld anzuschauen, bevor die
+    Kontrolle zurückkommt): sowohl beim Start einer neuen Runde als auch nach
     jedem Lebensverlust (sofern noch Leben übrig — beim letzten Leben läuft
     stattdessen direkt `_game_over()`, kein Banner) wird der Spieler SOFORT
     auf `_spawn_point()` gesetzt (`_player.reset()`), aber mit
     `input_enabled = false` bewegungs-/schussunfähig, bis das Banner fertig
     ist — der Spieler sieht das Schiff also die ganze Bannerdauer über
     unten mittig stehen, statt erst zu verschwinden und dann wieder
-    aufzutauchen.
+    aufzutauchen. Dauer ist bewusst an keinen Sound-Längen-Wert gekoppelt
+    (Platzhalter-Clips ändern sich noch) — beim Einbau echter Audiodateien
+    `READY_DELAY` ggf. an die tatsächliche `get-ready`-Clip-Länge anpassen.
+- **Respawn-Unverwundbarkeit** (`player.gd::set_invulnerable()`/
+  `invulnerable`, `game.gd::RESPAWN_INVULN` = 2.0s) — Nutzerfrage 2026-09-17:
+  „wie kann der Spieler den Gegner in der untersten Zeile aufhalten, in die
+  er nach einem Lebensverlust respawnt?". Recherche zum Original (1981)
+  ergab: dort gibt es **keine** eingebaute Unverwundbarkeit oder Freiraum-
+  Garantie beim Respawn — die Standard-Referenz ist rein proaktives
+  Feld-Management (Pilze in der eigenen Zone niedrig halten, die Centipede
+  gar nicht erst bis zur untersten Reihe kommen lassen; siehe Quellen unten).
+  Das erklärt aber nicht das eigene Problem: unser `State.TRANSITION`-Freeze
+  (siehe oben) hält zwar alles an, setzt den Spieler aber exakt auf
+  `_spawn_point()` zurück — sitzt zufällig schon ein Centipede-Segment/
+  Spider/Scorpion auf oder neben dieser festen Zelle, würde die Kollision
+  sofort im ersten Frame nach Ende von TRANSITION wieder feuern, noch bevor
+  der Spieler sich überhaupt bewegen kann — das ist ein reales, durch den
+  Freeze SELBST eingeführtes Problem (im Original bewegt sich der Spieler ja
+  ohne Zwangs-Pause weiter), keins aus dem Original übernehmbares Verhalten.
+  Fix: zusätzlich zum Freeze bekommt der Spieler nach `_finish_start()`/
+  `_finish_respawn()` (also erst wenn die Kontrolle zurückkommt, nicht
+  während des Banners selbst) `RESPAWN_INVULN` Sekunden lang echte
+  Berührungs-Unverwundbarkeit (`_check_player_collisions()` überspringt bei
+  `_player.invulnerable`) bei voller Beweglichkeit/Schussfähigkeit — genug
+  Zeit (2s × 300 px/s Speed), um aus jeder Ecke des Feldes rauszukommen.
+  Sichtbares Blinken (`player.gd::_draw()`, 8 Hz) signalisiert den Zustand.
+  Bewusst NUR für Start/Respawn, nicht für den Wave-Wechsel (dort verliert
+  der Spieler kein Leben und wird nicht neu positioniert, das Problem
+  besteht dort nicht).
 - **Punkte-Popups** (`score_popup.gd`/`.tscn`, `class_name ScorePopup`):
   kleines „+N"-Textlabel (`_draw()`-basiert wie die übrigen Spielobjekte),
   blendet über 0.5s ein/aus und driftet dabei leicht nach oben, friert sich
