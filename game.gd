@@ -146,6 +146,12 @@ func _to_title() -> void:
 	_paused = false
 	_clear_field()
 	_player.visible = false
+	# input_enabled defaults to true (player.gd) and nothing else ever turned
+	# it off before the very first _start_game() — without this, the still-
+	# invisible player kept reading keyboard/mouse/touch input and could fire
+	# (audibly, via _on_fire_requested()'s _snd_play("shoot")) while sitting
+	# on the Start screen.
+	_player.input_enabled = false
 	_hud_layer.visible = false
 	_touch_controls.visible = false
 	_menus.show_start()

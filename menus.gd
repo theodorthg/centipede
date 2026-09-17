@@ -145,12 +145,12 @@ func _rebuild() -> void:
 	_recenter_panel.call_deferred()
 	if screen == Screen.HELP:
 		# Deliberately NOT the generic first-focusable-control default (which
-		# would land on the "< Prev" button here) — see the global CLAUDE.md's
+		# would land on the "<" button here) — see the global CLAUDE.md's
 		# "Menü-Navigations-Konventionen": a focused button consumes
 		# ui_left/ui_right for Godot's own focus-neighbor navigation before
 		# _unhandled_input()'s paging ever sees the event, so landing on
-		# "Prev" would make the first D-pad-right press only move focus to
-		# "Next" instead of actually turning the page. Back has no focus
+		# "<" would make the first D-pad-right press only move focus to
+		# ">" instead of actually turning the page. Back has no focus
 		# neighbor to its right, so paging works on the very first press.
 		_help_back_btn.grab_focus.call_deferred()
 	else:
@@ -322,7 +322,7 @@ func _build_gameover() -> void:
 
 	_vbox.add_child(_heading("GAME OVER"))
 	var score_l := Label.new()
-	score_l.text = "SCORE %06d   WAVE %d" % [score, wave]
+	score_l.text = "SCORE %06d    ·    WAVE %d" % [score, wave]
 	score_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	score_l.add_theme_font_size_override("font_size", 20)
 	score_l.add_theme_color_override("font_color", Color.WHITE)
@@ -551,7 +551,9 @@ func _build_help() -> void:
 	var nav := HBoxContainer.new()
 	nav.alignment = BoxContainer.ALIGNMENT_CENTER
 	nav.add_theme_constant_override("separation", 10)
-	nav.add_child(_button("< Prev", func(): _turn_help(-1)))
+	var prev_btn := _button("<", func(): _turn_help(-1))
+	prev_btn.custom_minimum_size = Vector2(BTN_H, BTN_H)
+	nav.add_child(prev_btn)
 	var dots := HBoxContainer.new()
 	dots.alignment = BoxContainer.ALIGNMENT_CENTER
 	dots.add_theme_constant_override("separation", 8)
@@ -563,7 +565,9 @@ func _build_help() -> void:
 		d.color = UiStyle.ACCENT if i == _help_page else Color(1, 1, 1, 0.22)
 		dots.add_child(d)
 	nav.add_child(dots)
-	nav.add_child(_button("Next >", func(): _turn_help(1)))
+	var next_btn := _button(">", func(): _turn_help(1))
+	next_btn.custom_minimum_size = Vector2(BTN_H, BTN_H)
+	nav.add_child(next_btn)
 	_vbox.add_child(nav)
 
 	_help_back_btn = _button("Back", func(): _show_screen(_return_screen), true)
