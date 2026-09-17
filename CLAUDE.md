@@ -37,6 +37,26 @@ nicht ersetzend). Genrevorbild:
   taucht spaltengerade senkrecht durch (`centipede_chain.gd`'s `_diving`),
   bis er die unterste Reihe erreicht, und macht danach mit der zuvor
   gehaltenen Richtung normal weiter.
+- **Flea-Pilzdichte begrenzt** (`flea.gd::MAX_DROPS` = 4, Stand 2026-09-18,
+  Nutzerfund): ohne Obergrenze sät eine Flea auf ihrer Fahrt durch alle
+  ~28 Reihen bei `DROP_CHANCE` = 0.35 im Schnitt ~10 Pilze in EINER
+  einzigen Spalte — praktisch eine durchgehende Wand. Über mehrere
+  Flea-Läufe (ausgelöst, sobald die Pilzdichte in der Spielerzone niedrig
+  ist) konnte das den oberen Feldbereich irgendwann komplett zusetzen und
+  einer frisch gespawnten Centipede keinen freien Platz mehr zum Bewegen
+  lassen. `MAX_DROPS` deckelt das auf eine sinnvolle Handvoll Ersatz-Pilze
+  pro Lauf — reicht für die eigentliche Aufgabe (Spielerzone nicht
+  leerlaufen lassen), ohne die Spalte zuzumauern.
+- **Spider-Aktionsradius auf das GESAMTE Feld erweitert** (`game.gd::
+  _spawn_spider()`, Stand 2026-09-18, Nutzerfund, direkt zusammenhängend mit
+  dem Flea-Fund oben): der Spider fraß Pilze bisher nur innerhalb der
+  Spielerzone (plus etwas Vorlauf) — dadurch gab es NICHTS, was den
+  Pilz-Nachschub der Fleas im OBEREN Feldbereich je wieder ausgedünnt hätte.
+  Startet jetzt weiterhin sichtbar in Spielernähe
+  (`FieldGrid.zone_top_row(...)`), seine Bounce-Box (`box_top`/`box_bottom`
+  in `spider.gd`) deckt aber das ganze Feld von `FieldGrid.FIELD_TOP` bis
+  zum Feldboden ab, damit er dem Flea-Nachschub überall entgegenwirkt, nicht
+  nur in Spielernähe.
 - **Farbschema**: Hintergrund Schwarz, Akzent Giftgrün (`#39ff14`,
   `UiStyle.ACCENT`), Text/Spielfiguren-Kontur Weiß. Panel-Rahmen, Button-Rahmen
   und Fokus-Rahmen konsequent giftgrün (`ui_style.gd`).
@@ -109,20 +129,31 @@ bottom, not only are you at risk of dying"), kann sich aber besonders bei
 mehreren gleichzeitig herumgeisternden nackten Köpfen wie eine echte
 Sackgasse anfühlen.
 
-**Fix: `CentipedeChain.LONE_HEAD_TIMEOUT`** (15.0s, `centipede_chain.gd`) —
-sobald eine Kette auf einen einzelnen Kopf reduziert ist UND dieser Kopf in
-der untersten Reihe sitzt, läuft ein Timer (`_lone_head_stuck_t`, pro
-`step()`-Aufruf hochgezählt, sofort zurückgesetzt sobald die Bedingung nicht
-mehr zutrifft — passiert in der Praxis nie von selbst, s. o., aber
-Verteidigung schadet nicht). Überschreitet der Timer `LONE_HEAD_TIMEOUT`,
-meldet `is_stuck()` das an `game.gd`, das den Kopf dann per
-`_auto_clear_stuck_head()` über GENAU denselben `hit()`-Reward-Pfad wie ein
-echter Bullet-Treffer entfernt (Punkte, Ersatz-Pilz, `segment-kill`-Sound,
-Punkte-Popup) — für den Spieler kaum vom normalen Treffer zu unterscheiden,
-garantiert aber, dass jede Welle in endlicher Zeit fertig wird, ohne den
-Nahkampf-Nervenkitzel zu verändern, solange noch ein Rumpf dranhängt. Geprüft
-per `_selftest.gd` (Timeout-Grenzfall + „Kette mit Rumpf zählt nie als
-stuck") und live im Editor (kompletter Kreislauf: Auto-Clear → Punkte →
+**Fix: `CentipedeChain.STUCK_AT_BOTTOM_TIMEOUT`** (15.0s,
+`centipede_chain.gd`) — sobald der KOPF einer Kette in der untersten Reihe
+sitzt (unabhängig davon, wie viele Rumpfsegmente noch dranhängen), läuft ein
+Timer (`_stuck_at_bottom_t`, pro `step()`-Aufruf hochgezählt, sofort
+zurückgesetzt sobald die Bedingung nicht mehr zutrifft). Überschreitet der
+Timer den Grenzwert, meldet `is_stuck()` das an `game.gd`, das die GESAMTE
+Kette dann per `_auto_clear_stuck_head()` segmentweise über GENAU denselben
+`hit()`-Reward-Pfad wie echte Bullet-Treffer entfernt (jedes verbleibende
+Segment wird der Reihe nach zum „Kopf" und zählt 100 Punkte — exakt das, was
+ein Spieler bekäme, der die Kette von vorne leerschießt, siehe
+`_bullet_vs_centipede()`), samt Ersatz-Pilz, `segment-kill`-Sound und
+Punkte-Popup. Garantiert, dass jede Welle in endlicher Zeit fertig wird, egal
+wie viele Segmente beim Feststecken noch übrig waren, ohne den
+Nahkampf-Nervenkitzel zu verändern, solange die Kette noch in Bewegung ist.
+**Ursprünglich (2026-09-17) auf `segments.size() == 1` beschränkt** — Fehler,
+vom Nutzer live gefunden: mehrsegmentige Züge, die in der untersten Reihe
+feststecken, sind GENAUSO unentkommbar wie ein nackter Kopf, hatten aber gar
+kein Sicherheitsnetz. Seit 2026-09-18 gilt der Timeout für jede Kettenlänge.
+**Banner-Unterscheidung**: `game.gd::_wave_auto_cleared` (pro Welle in
+`_spawn_wave()` zurückgesetzt) sorgt dafür, dass `_check_wave_clear()`
+„AUTO-CLEARED!" statt „CLEARED!" zeigt, wenn der Auto-Clear an dieser Welle
+beteiligt war — der Spieler soll den Unterschied erkennen können. Geprüft
+per `_selftest.gd` (Timeout-Grenzfall für Einzel- UND Mehrsegment-Ketten) und
+live im Editor (kompletter Kreislauf: 5-Segmente-Kette am Boden feststecken
+lassen → Auto-Clear → 500 Punkte (5×100) → „AUTO-CLEARED!"-Banner →
 Wave-Clear-Trigger → nächste Welle).
 
 ## Bekannte offene Punkte

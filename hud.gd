@@ -91,9 +91,11 @@ func _ready() -> void:
 	_banner_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_banner_label.position = Vector2(DESIGN_WIDTH * 0.5 - 160, DESIGN_HEIGHT * 0.5 - 40)
-	_banner_label.size = Vector2(320, 80)
-	_banner_label.add_theme_font_size_override("font_size", 44)
+	# Wide enough for the longest banner text ("AUTO-CLEARED!", see
+	# game.gd::_check_wave_clear()), not just "CLEARED!"/"GET READY!".
+	_banner_label.position = Vector2(DESIGN_WIDTH * 0.5 - 240, DESIGN_HEIGHT * 0.5 - 40)
+	_banner_label.size = Vector2(480, 80)
+	_banner_label.add_theme_font_size_override("font_size", 40)
 	_banner_label.modulate.a = 0.0
 	_banner_label.visible = false
 	add_child(_banner_label)

@@ -28,9 +28,9 @@ func _draw() -> void:
 	var c := r.get_center()
 	var s := minf(r.size.x, r.size.y) * 0.34
 	var col := Color.WHITE  # matches the Pause button's white "II" glyph
-	# -4.0: the sound-wave arcs' outer radius otherwise pokes a few px past
-	# the button's right edge (56px wide, icon reaches ~60px without this).
-	var cone_x := c.x - s * 0.25 - 4.0
+	# -6.0: the sound-wave arcs' outer radius otherwise pokes past the
+	# button's right edge (56px wide) and lands right on its border.
+	var cone_x := c.x - s * 0.25 - 6.0
 	var body_w := s * 0.45
 	var pts := PackedVector2Array([
 		Vector2(cone_x - body_w, c.y - s * 0.35),

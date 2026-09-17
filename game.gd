@@ -66,6 +66,7 @@ var _paused := false
 var _score := 0
 var _lives := 0
 var _wave := 1
+var _wave_auto_cleared := false
 var _next_extra := 0
 var _mushrooms := {}          # Vector2i -> Mushroom
 var _chains: Array[CentipedeChain] = []
@@ -190,6 +191,7 @@ func _spawn_point() -> Vector2:
 		FieldGrid.FIELD_TOP + FieldGrid.ROWS * FieldGrid.CELL - FieldGrid.CELL * 0.5)
 
 func _spawn_wave() -> void:
+	_wave_auto_cleared = false
 	_clear_mushrooms()
 	_scatter_mushrooms()
 	_spawn_centipede()
@@ -315,14 +317,22 @@ func _process(delta: float) -> void:
 	_check_player_collisions()
 	_check_wave_clear()
 
+## Range covers the WHOLE field, not just the player's own movement zone
+## (found live, 2026-09-18: with the spider only ever thinning mushrooms
+## near the player, nothing ever thinned the upper field — repeated flea
+## drops there had no counterbalance and could eventually leave a freshly
+## spawned centipede with no open cell anywhere to move into). A wider-
+## roaming spider now works against that everywhere, not just close to the
+## player.
 func _spawn_spider() -> void:
 	_spider = SpiderScene.instantiate()
 	add_child(_spider)
 	_spider.eat_mushroom = _spider_eat
-	var top: float = FieldGrid.cell_to_pixel(0, FieldGrid.zone_top_row(_cfg.movement_zone)).y - FieldGrid.CELL
+	var top: float = FieldGrid.FIELD_TOP
 	var bottom: float = FieldGrid.FIELD_TOP + FieldGrid.ROWS * FieldGrid.CELL
 	var start_x: float = FieldGrid.FIELD_LEFT if randf() < 0.5 else FieldGrid.DESIGN_WIDTH
-	_spider.setup(Vector2(start_x, (top + bottom) * 0.5), top, bottom)
+	var zone_top: float = FieldGrid.cell_to_pixel(0, FieldGrid.zone_top_row(_cfg.movement_zone)).y
+	_spider.setup(Vector2(start_x, zone_top), top, bottom)
 
 func _spider_eat(col: int, row: int) -> void:
 	var key := Vector2i(col, row)
@@ -419,21 +429,32 @@ func _bullet_vs_centipede(b: Node2D) -> bool:
 			return true
 	return false
 
-## See centipede_chain.gd's LONE_HEAD_TIMEOUT/is_stuck() doc comment: a bare
-## head that's been cornered in the player's own bottom row for too long
-## (no safe firing distance there — hitting it means standing right next to
-## it) gets force-killed via the exact same hit()/reward path a real bullet
-## hit would use, so every wave is guaranteed to finish in bounded time.
+## See centipede_chain.gd's STUCK_AT_BOTTOM_TIMEOUT/is_stuck() doc comment: a
+## chain cornered in the player's own bottom row for too long (no safe firing
+## distance there — hitting it means standing right next to it) gets
+## force-cleared entirely, one segment at a time, via the exact same
+## hit()/reward path a real bullet hit would use — every remaining segment in
+## turn becomes "the head" the same way it would if a player picked the train
+## off from the front (see _bullet_vs_centipede()), so this awards exactly
+## what that would have. Guarantees every wave finishes in bounded time, no
+## matter how many segments were still attached when it got stuck. Marks the
+## wave as auto-cleared so _check_wave_clear() shows "AUTO-CLEARED!" instead
+## of "CLEARED!" — the player should be able to tell the difference.
 func _auto_clear_stuck_head(chain: CentipedeChain) -> void:
-	var result: Dictionary = chain.hit(0)
-	_add_mushroom_from_hit(result.cell)
-	_add_score(100)
+	_wave_auto_cleared = true
+	var current: CentipedeChain = chain
+	var total_pts := 0
+	var last_cell := Vector2i.ZERO
+	while current != null and not current.segments.is_empty():
+		var result: Dictionary = current.hit(0)
+		last_cell = result.cell
+		total_pts += 100
+		current = result.new_chain
+	_add_mushroom_from_hit(last_cell)
+	_add_score(total_pts)
 	_snd_play("segment-kill")
-	_spawn_score_popup(FieldGrid.cell_to_pixel(result.cell.x, result.cell.y), 100)
-	if result.new_chain != null:
-		_chains.append(result.new_chain)
-	if result.empty:
-		_chains.erase(chain)
+	_spawn_score_popup(FieldGrid.cell_to_pixel(last_cell.x, last_cell.y), total_pts)
+	_chains.erase(chain)
 
 func _bullet_vs_spider(b: Node2D) -> bool:
 	if not is_instance_valid(_spider) or b.position.distance_to(_spider.position) >= 16.0:
@@ -530,7 +551,8 @@ func _check_wave_clear() -> void:
 	if _chains.is_empty():
 		_player.input_enabled = false
 		_snd_play("wave-cleared")
-		_begin_transition("CLEARED!", CLEARED_DELAY, _finish_wave_clear)
+		var text := "AUTO-CLEARED!" if _wave_auto_cleared else "CLEARED!"
+		_begin_transition(text, CLEARED_DELAY, _finish_wave_clear)
 
 func _finish_wave_clear() -> void:
 	_wave += 1
