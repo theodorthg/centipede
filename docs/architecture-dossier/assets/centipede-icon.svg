@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="22" fill="#000000"/>
+  <rect x="2" y="2" width="124" height="124" rx="20" fill="none" stroke="#39ff14" stroke-width="3"/>
+  <!-- mushroom, upper-left -->
+  <rect x="30" y="46" width="8" height="20" fill="#f2fff2"/>
+  <circle cx="34" cy="34" r="20" fill="#39ff14"/>
+  <circle cx="34" cy="34" r="20" fill="none" stroke="#f2fff2" stroke-width="2"/>
+  <!-- centipede head + 2 segments, diagonal lower-right -->
+  <circle cx="102" cy="70" r="11" fill="#f2fff2"/>
+  <circle cx="84" cy="84" r="11" fill="#f2fff2"/>
+  <circle cx="66" cy="98" r="11" fill="#39ff14"/>
+  <circle cx="62" cy="94" r="2" fill="#000"/>
+  <circle cx="70" cy="94" r="2" fill="#000"/>
+</svg>

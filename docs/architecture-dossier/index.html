@@ -1,0 +1,906 @@
+<title>Centipede Architektur-Dossier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#050d05;
+    --bg-2:#081208;
+    --panel:#0d1a0d;
+    --panel-2:#132a13;
+    --panel-line:#1f3a1f;
+    --accent:#39ff14;
+    --accent-soft:rgba(57,255,20,.14);
+    --accent-line:rgba(57,255,20,.24);
+    --amber:#ffb347;
+    --amber-soft:rgba(255,179,71,.14);
+    --danger:#ff5c5c;
+    --danger-soft:rgba(255,92,92,.13);
+    --info:#66ccff;
+    --text:#eafff0;
+    --text-dim:#8fcf8f;
+    --text-faint:#4f7a4f;
+    --code-bg:#081208;
+    --shadow:0 20px 60px -30px rgba(0,0,0,.8);
+    --maxw:790px;
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 700px at 12% -10%, rgba(57,255,20,.08), transparent 60%),
+      radial-gradient(900px 600px at 100% 0%, rgba(255,179,71,.05), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:16px;
+    line-height:1.65;
+    padding-inline:20px;
+    padding-block:0 80px;
+  }
+  a{color:var(--accent);}
+  h1,h2,h3{text-wrap:balance; font-family:"IBM Plex Sans",sans-serif; color:var(--text); margin:0;}
+  code,pre,.mono{font-family:"IBM Plex Mono","SFMono-Regular",monospace;}
+  img{max-width:100%; display:block;}
+  table{font-variant-numeric:tabular-nums;}
+
+  /* ---------- scanlines: a faint, static echo of the game's CRT-arcade feel --- */
+  .stars{
+    position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
+    background-image:
+      radial-gradient(1.5px 1.5px at 10% 20%, #9fffb0 0, transparent 60%),
+      radial-gradient(1px 1px at 24% 66%, #cfffd8 0, transparent 60%),
+      radial-gradient(1.5px 1.5px at 40% 10%, #9fffb0 0, transparent 60%),
+      radial-gradient(1px 1px at 56% 80%, #cfffd8 0, transparent 60%),
+      radial-gradient(1.5px 1.5px at 70% 32%, #9fffb0 0, transparent 60%),
+      radial-gradient(1px 1px at 84% 56%, #cfffd8 0, transparent 60%),
+      radial-gradient(1.5px 1.5px at 93% 18%, #9fffb0 0, transparent 60%),
+      radial-gradient(1px 1px at 96% 76%, #cfffd8 0, transparent 60%),
+      repeating-linear-gradient(0deg, rgba(57,255,20,.035) 0px, rgba(57,255,20,.035) 1px, transparent 1px, transparent 3px);
+    background-repeat:no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  }
+
+  .wrap{position:relative; z-index:1; max-width:1180px; margin-inline:auto;}
+
+  /* ---------- title block, modelled on an engineering drawing's stamp --------- */
+  header.titleblock{
+    padding-block:44px 28px;
+    display:flex; flex-wrap:wrap; gap:28px; align-items:flex-end; justify-content:space-between;
+    border-bottom:1px solid var(--panel-line);
+  }
+  .titleblock__id{display:flex; align-items:center; gap:16px;}
+  .titleblock__id img{width:56px; height:56px; border-radius:14px; box-shadow:var(--shadow); border:1px solid var(--accent-line);}
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 8px;
+  }
+  h1.title{
+    font-family:"Orbitron",sans-serif; font-weight:800; font-size:clamp(26px,4vw,40px);
+    letter-spacing:.02em; line-height:1.06;
+    background:linear-gradient(180deg,#fff, #c9ffd4 60%, var(--accent));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .stamp{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--text-dim);
+    display:grid; grid-template-columns:auto auto; gap:4px 14px; border:1px solid var(--panel-line);
+    background:var(--panel); border-radius:10px; padding:12px 16px;
+  }
+  .stamp b{color:var(--text); font-weight:600;}
+  .stamp .k{color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; font-size:10.5px; align-self:center;}
+
+  .lede{max-width:var(--maxw); padding-block:22px 6px; color:var(--text-dim); font-size:16px;}
+  .lede strong{color:var(--text); font-weight:600;}
+
+  /* ---------- layout: sticky module rail + content column --------------------- */
+  .layout{display:grid; grid-template-columns:200px minmax(0,1fr); gap:52px; padding-top:28px;}
+  nav.rail{position:sticky; top:24px; align-self:start; display:flex; flex-direction:column; gap:2px;}
+  nav.rail a{
+    display:flex; gap:10px; align-items:baseline; text-decoration:none; color:var(--text-dim);
+    font-size:13.5px; padding:8px 10px; border-radius:8px; border-left:2px solid transparent;
+  }
+  nav.rail a .n{font-family:"IBM Plex Mono",monospace; color:var(--text-faint); font-size:12px;}
+  nav.rail a:hover{background:var(--accent-soft); color:var(--text);}
+  nav.rail a.active{border-left-color:var(--accent); background:var(--accent-soft); color:var(--text);}
+  nav.rail a.active .n{color:var(--accent);}
+
+  main{min-width:0; max-width:var(--maxw);}
+
+  section.mod{padding-block:40px; border-top:1px solid var(--panel-line);}
+  section.mod:first-child{border-top:none; padding-top:6px;}
+  .mod__head{display:flex; gap:16px; align-items:baseline; margin-bottom:6px;}
+  .mod__num{
+    font-family:"Orbitron",sans-serif; font-weight:700; font-size:15px; color:var(--bg);
+    background:var(--accent); border-radius:6px; padding:3px 9px; letter-spacing:.03em;
+    box-shadow:0 0 0 1px var(--accent-line), 0 8px 18px -8px var(--accent-soft);
+  }
+  .mod h2{font-size:23px; font-weight:700; letter-spacing:.01em;}
+  .mod__sub{color:var(--text-faint); font-size:13px; margin:6px 0 22px; font-family:"IBM Plex Mono",monospace;}
+
+  p{margin:0 0 14px;}
+  h3{font-size:16.5px; font-weight:600; margin:26px 0 10px; color:var(--text);}
+  h3 .k{color:var(--accent); font-family:"IBM Plex Mono",monospace; font-size:13px; margin-right:8px;}
+  ul,ol{margin:0 0 16px; padding-left:22px;}
+  li{margin-bottom:6px;}
+
+  /* ---------- module table (file/purpose listing, styled like a parts list) --- */
+  .partslist{width:100%; border-collapse:collapse; margin:8px 0 24px; font-size:14px;}
+  .partslist th{
+    text-align:left; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--text-faint); font-weight:500; padding:0 12px 8px 0;
+    border-bottom:1px solid var(--panel-line);
+  }
+  .partslist td{padding:10px 12px 10px 0; border-bottom:1px solid rgba(31,58,31,.55); vertical-align:top;}
+  .partslist tr:last-child td{border-bottom:none;}
+  .partslist td:first-child{white-space:nowrap;}
+  .partslist a{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:500;}
+
+  /* ---------- pinout-style table (layers, signals) ----------------------------- */
+  .pinout{width:100%; border-collapse:collapse; margin:8px 0 24px; font-size:13.5px;}
+  .pinout th{
+    text-align:left; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--bg); background:var(--accent); padding:8px 12px;
+  }
+  .pinout th:first-child{border-radius:8px 0 0 0;}
+  .pinout th:last-child{border-radius:0 8px 0 0;}
+  .pinout td{padding:9px 12px; border-bottom:1px solid rgba(31,58,31,.6); background:var(--panel);}
+  .pinout tr:last-child td:first-child{border-radius:0 0 0 8px;}
+  .pinout tr:last-child td:last-child{border-radius:0 0 8px 0;}
+  .pinout code{color:var(--accent); font-size:12.5px;}
+  .pinout .tbl-wrap{overflow-x:auto;}
+
+  /* ---------- code console panel ------------------------------------------------ */
+  .code{
+    margin:14px 0 22px; border-radius:10px; overflow:hidden; border:1px solid var(--panel-line);
+    background:var(--code-bg); box-shadow:var(--shadow);
+  }
+  .code .tab{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:8px 14px; background:var(--panel-2); border-bottom:1px solid var(--panel-line);
+    font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--text-dim);
+  }
+  .code .tab .dots{display:flex; gap:5px;}
+  .code .tab .dots span{width:8px; height:8px; border-radius:50%; background:var(--panel-line);}
+  .code pre{margin:0; padding:16px 18px; overflow-x:auto;}
+  .code code{font-size:13px; line-height:1.62; color:#dcffe4; white-space:pre;}
+  .code .c1{color:var(--text-faint);}
+  .tbl-wrap{overflow-x:auto;}
+
+  /* ---------- experimental: real Godot 4.7 editor syntax colors ----------
+     Values pulled verbatim from this machine's own editor_data/
+     editor_settings-4.7.tres (text_editor/theme/highlighting/*) — the same
+     source and same values as galaga's dossier (a per-machine editor
+     setting, not per-project, so identical here). Screen-only comparison
+     toggle; @media print always neutralizes it back to the dossier's own
+     print palette regardless of toggle state, and the tab bar / rest of the
+     page never changes — only the code TEXT itself. */
+  .syntax-toggle{
+    display:inline-flex; align-items:center; gap:10px; margin:14px 0 4px;
+    font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--text-dim);
+  }
+  .syntax-toggle button{
+    font-family:inherit; font-size:12px; letter-spacing:.02em; cursor:pointer;
+    background:var(--panel); color:var(--text-dim); border:1px solid var(--panel-line);
+    border-radius:7px; padding:6px 12px;
+  }
+  .syntax-toggle button[aria-pressed="true"]{ background:var(--accent); color:var(--bg); border-color:var(--accent); }
+  .syntax-toggle button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  body.godot-syntax .code{ background:#1a1a1a; }
+  body.godot-syntax .code code{ color:rgba(255,255,255,.75); }
+  .gd-kf{color:#ff8ccc;}  /* control-flow keywords: if/elif/for/while/return/match/await */
+  .gd-kd{color:#ff7085;}  /* declaration keywords: var/const/func/class_name/extends/signal/and/or/not/in/as */
+  .gd-t {color:#42ffc2;}  /* types: int/float/bool/String/Vector2/… and any CapitalizedWord */
+  .gd-s {color:#ffeda1;}  /* string literals */
+  .gd-n {color:#a1ffe0;}  /* numbers */
+  .gd-fn{color:#57b2ff;}  /* function calls */
+  .gd-fd{color:#66e6ff;}  /* function definitions (right after "func ") */
+  .gd-a {color:#ffb273;}  /* annotations: @export, @onready */
+  .gd-c {color:rgba(255,255,255,.5);}  /* comments */
+
+  /* ---------- figure plates ---------------------------------------------------- */
+  figure.plate{
+    margin:22px 0; border:1px solid var(--panel-line); border-radius:12px; overflow:hidden;
+    background:var(--panel); box-shadow:var(--shadow);
+  }
+  figure.plate img{width:100%;}
+  figure.plate figcaption{
+    padding:10px 16px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.03em;
+    color:var(--text-dim); border-top:1px solid var(--panel-line);
+  }
+  figure.plate figcaption b{color:var(--accent); font-weight:600; margin-right:10px;}
+  .plate-row{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  @media (max-width:640px){.plate-row{grid-template-columns:1fr;}}
+
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:var(--text-dim); margin:2px 0 18px;}
+  .legend span{display:inline-flex; align-items:center; gap:7px;}
+  .legend i{width:14px; height:3px; border-radius:2px; display:inline-block;}
+
+  .callout{
+    border-left:3px solid var(--amber); background:var(--amber-soft); border-radius:0 10px 10px 0;
+    padding:12px 16px; font-size:14px; color:var(--text-dim); margin:18px 0;
+  }
+  .callout b{color:var(--text);}
+  .callout.danger{ border-left-color:var(--danger); background:var(--danger-soft); }
+  .callout.info{ border-left-color:var(--info); background:rgba(102,204,255,.1); }
+
+  footer{
+    max-width:var(--maxw); margin-left:auto; margin-right:0; padding-top:26px; border-top:1px solid var(--panel-line);
+    color:var(--text-faint); font-family:"IBM Plex Mono",monospace; font-size:11.5px;
+  }
+  footer p{margin:4px 0;}
+
+  @media (max-width:880px){
+    .layout{grid-template-columns:1fr;}
+    nav.rail{
+      position:static; flex-direction:row; overflow-x:auto; gap:6px; padding-bottom:6px;
+      border-bottom:1px solid var(--panel-line); margin-bottom:8px;
+    }
+    nav.rail a{white-space:nowrap; border-left:none; border-bottom:2px solid transparent;}
+    nav.rail a.active{border-left:none; border-bottom-color:var(--accent);}
+    main{max-width:100%;}
+  }
+
+  /* ---------- print hint (screen only) ------------------------------------
+     Not a button: this page runs inside a sandboxed iframe (no "allow-modals"
+     in its sandbox token list), which blocks window.print() unconditionally
+     per the HTML spec — no script here can open the print dialog, so a
+     "Print" button would just silently do nothing. Ctrl/Cmd+P is a browser
+     shortcut the user triggers directly, not a script call from inside this
+     frame, so it isn't affected by that restriction. */
+  .print-hint{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--text-dim);
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:8px;
+    padding:9px 14px; text-align:right; line-height:1.5;
+  }
+  .print-hint kbd{
+    font-family:inherit; font-size:11px; color:var(--text); background:var(--panel-2);
+    border:1px solid var(--panel-line); border-radius:4px; padding:1px 6px;
+  }
+
+  /* =====================================================================
+     PRINT — a separate "blueprint" palette: dark backgrounds don't print
+     (most browsers drop background colors unless "print backgrounds" is on,
+     which would leave this page's light text on bare white paper otherwise),
+     so print gets its own light, ink-appropriate scheme instead of trying to
+     reuse the on-screen dark one. Page-break rules keep headings glued to
+     their following paragraph, and figures/tables/code blocks intact.
+     ===================================================================== */
+  @media print{
+    @page{ size:A4; margin:16mm 15mm 18mm; }
+
+    :root{
+      --bg:#f5f8f4; --bg-2:#f5f8f4; --panel:#ffffff; --panel-2:#eef4ec;
+      --panel-line:#c3d4c0; --accent:#106b1f; --accent-soft:transparent; --accent-line:#c3d4c0;
+      --amber:#9a5a10; --amber-soft:#fdf0df; --danger:#a3271f; --danger-soft:#fdeceb; --info:#0b5fa8;
+      --text:#131c13; --text-dim:#425342; --text-faint:#647764;
+      --code-bg:#ffffff; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+    .stars, nav.rail, .print-hint, .syntax-toggle{ display:none !important; }
+    body:not(.godot-syntax) .code{ background:var(--code-bg) !important; }
+    body:not(.godot-syntax) .code code{ color:var(--text) !important; }
+    body:not(.godot-syntax) .gd-kf, body:not(.godot-syntax) .gd-kd,
+    body:not(.godot-syntax) .gd-t, body:not(.godot-syntax) .gd-s,
+    body:not(.godot-syntax) .gd-n, body:not(.godot-syntax) .gd-fn,
+    body:not(.godot-syntax) .gd-fd, body:not(.godot-syntax) .gd-a,
+    body:not(.godot-syntax) .gd-c{ color:inherit !important; }
+    body.godot-syntax .code{ background:#1a1a1a !important; border-color:#000; }
+    body.godot-syntax .code .tab{ background:#232323; color:rgba(255,255,255,.6); border-bottom-color:#000; }
+    body.godot-syntax .code code{ color:rgba(255,255,255,.75) !important; }
+    .layout{ display:block; }
+    main{ max-width:none; }
+    body{ padding:0; font-size:12.5px; background:var(--bg); }
+
+    h1.title{ background:none; -webkit-text-fill-color:currentColor; }
+    .code code{ color:var(--text); }
+    .code pre{ overflow-x:visible; }
+    .code pre, .code code{ white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; }
+    .tbl-wrap{ overflow-x:visible; }
+
+    section.mod{ border-top:none; padding-block:0; break-before:page; page-break-before:always; }
+    section.mod:first-of-type{ break-before:avoid; page-break-before:avoid; }
+
+    .mod__num{ background:none; color:var(--accent); border:1.4px solid var(--accent); }
+    .pinout th{ background:none; color:var(--accent); border-bottom:1.5px solid var(--accent); }
+
+    h2, h3, .mod__head{
+      break-after:avoid; page-break-after:avoid; break-inside:avoid; page-break-inside:avoid;
+    }
+    p, li{ orphans:3; widows:3; }
+
+    .code, figure.plate{ overflow:visible; border-radius:0; }
+    .code .tab{ border-radius:0; }
+    .code, figure.plate, .plate-row, .callout{ break-inside:avoid; page-break-inside:avoid; }
+    .code pre, .code .tab{ break-inside:avoid; page-break-inside:avoid; }
+    .code .tab{ break-after:avoid; page-break-after:avoid; }
+    .partslist tr, .pinout tr{ break-inside:avoid; page-break-inside:avoid; }
+
+    footer{ break-before:avoid; }
+  }
+</style>
+
+<div class="stars"></div>
+<div class="wrap">
+
+  <header class="titleblock">
+    <div class="titleblock__id">
+      <img src="assets/centipede-icon.png" alt="Centipede-Icon">
+      <div>
+        <p class="eyebrow">Technisches Dossier</p>
+        <h1 class="title">CENTIPEDE<br>ARCHITEKTUR&#8209;DOSSIER</h1>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+      <p class="print-hint">Für die PDF: <kbd>Strg</kbd>/<kbd>Cmd</kbd>+<kbd>P</kbd><br>Ziel „Als PDF speichern"</p>
+      <div class="stamp">
+        <span class="k">Doc</span><b>CENTIPEDE&#8209;ARCH&#8209;001</b>
+        <span class="k">Rev</span><b>v1.0.0</b>
+        <span class="k">Datum</span><b>2026&#8209;09&#8209;18</b>
+        <span class="k">Engine</span><b>Godot 4.7.1 · GL Compatibility</b>
+      </div>
+    </div>
+  </header>
+
+  <p class="lede">
+    Übersicht über die <strong>Centipede-Bewegungslogik</strong> (Follow-the-leader, Split,
+    Gift-Tauchgang), das <strong>Kollisionsmodell</strong> (bewusst ohne <code>Area2D</code>),
+    die <strong>Gegner-KI</strong> (Spider/Flea/Scorpion) und die <strong>Zustandsautomat/Banner</strong>-
+    Logik (GET&nbsp;READY!/CLEARED!/AUTO-CLEARED!) im Centipede-Projekt — fünf Module, von den
+    einzelnen GDScript-Dateien über den Szenenbaum bis zu den Signalen/Callables, die sie verbinden.
+    Alle Code-Ausschnitte und Screenshots stammen aus dem aktuellen Projektstand (v1.0.0); die
+    beiden Diagramme in Modul 02 und 05 sind eigens dafür gezeichnet.
+  </p>
+
+  <div class="syntax-toggle">
+    Code-Farben:
+    <button type="button" id="syntaxToggleBtn" aria-pressed="false" onclick="toggleGodotSyntax()">Dossier ⇄ Godot-Editor (experimentell)</button>
+  </div>
+
+  <div class="layout">
+    <nav class="rail" id="rail">
+      <a href="#sec-01"><span class="n">01</span> Module</a>
+      <a href="#sec-02"><span class="n">02</span> Szenenbaum</a>
+      <a href="#sec-03"><span class="n">03</span> Kern-Code</a>
+      <a href="#sec-04"><span class="n">04</span> Signale</a>
+      <a href="#sec-05"><span class="n">05</span> UML</a>
+    </nav>
+
+    <main>
+
+      <!-- ============================================================= 01 -->
+      <section class="mod" id="sec-01">
+        <div class="mod__head"><span class="mod__num">01</span><h2>GDScript-Dateien — Bedeutung &amp; Modularisierung</h2></div>
+        <p class="mod__sub">ein einziger Ort kennt Score, HP und wer wen berührt</p>
+
+        <p>Anders als bei den anderen Projekten in diesem Lernpfad besitzt hier <strong>keine</strong>
+        Gefahr/kein Ziel eine eigene Kollisionslogik — <code>game.gd</code> ist der einzige Ort, der
+        „was hat was berührt" überhaupt beantwortet (Modul&nbsp;02 erklärt, warum). Jede andere Datei
+        kennt nur ihre eigene Bewegung/Zeichnung und meldet sich per <code>Callable</code> zurück,
+        wenn game.gd etwas wissen will (Modul&nbsp;04).</p>
+
+        <div class="tbl-wrap">
+        <table class="partslist">
+          <thead><tr><th>Bereich</th><th>Dateien</th><th>Zweck</th></tr></thead>
+          <tbody>
+          <tr>
+            <td>Einstieg /<br>State-Machine /<br>Kollision</td>
+            <td class="mono">game.gd</td>
+            <td>Einziger Ort, der Spielzustand (<code>TITLE→PLAYING→TRANSITION→GAMEOVER</code>),
+            Score/Leben/Welle UND jede Kollisionsprüfung kennt. Spawnt alles, verbindet alle
+            Callables/Signale.</td>
+          </tr>
+          <tr>
+            <td>Centipede-<br>Bewegung</td>
+            <td class="mono">centipede_chain.gd<br>centipede_segment.gd</td>
+            <td><code>CentipedeChain</code> ist reine <code>RefCounted</code>-Logik (kein Node,
+            kein Platz im Szenenbaum) — entscheidet Richtung/Split/Tauchgang/Stuck-Timeout für
+            eine ganze Kette. <code>CentipedeSegment</code> ist der zugehörige Node2D, der nur
+            zwischen zwei Zellen interpoliert und sich zeichnet.</td>
+          </tr>
+          <tr>
+            <td>Spieler</td>
+            <td class="mono">player.gd</td>
+            <td>Bewegung (Tastatur/Gamepad SPEED-gedeckelt, Maus/Touch 1:1-Snapping), Schießen,
+            Unverwundbarkeits-Blinken.</td>
+          </tr>
+          <tr>
+            <td>Feld &amp; Gegner</td>
+            <td class="mono">mushroom.gd<br>spider.gd<br>flea.gd<br>scorpion.gd<br>bullet.gd</td>
+            <td>Jede Klasse zeichnet nur sich selbst und bewegt sich selbst — keine kennt Punkte,
+            HUD oder den Spieler direkt.</td>
+          </tr>
+          <tr>
+            <td>Feedback</td>
+            <td class="mono">score_popup.gd</td>
+            <td>Kurzes „+N"-Textpopup an der Trefferstelle, friert sich nach 0,5s selbst weg.</td>
+          </tr>
+          <tr>
+            <td>UI</td>
+            <td class="mono">hud.gd<br>menus.gd<br>touch_controls.gd<br>ui_style.gd<br>mute_icon.gd</td>
+            <td>HUD zeigt Score/Welle/Leben/Pause/Mute + Banner; <code>menus.gd</code> baut
+            <strong>alle</strong> Screens (Start/Settings/Sound/Pause/Game&nbsp;Over/Hilfe/High&nbsp;Scores)
+            komplett im Code, ein gemeinsamer Panel-Container wird pro Screen neu befüllt.</td>
+          </tr>
+          <tr>
+            <td>Daten /<br>Persistenz</td>
+            <td class="mono">field_grid.gd<br>game_settings.gd<br>hall_of_fame.gd<br>sound_manager.gd</td>
+            <td><code>FieldGrid</code> ist die gemeinsame Koordinatenwelt (Zelle&nbsp;↔&nbsp;Pixel),
+            von praktisch jeder anderen Datei importiert. Rest ist <code>static</code>/Autoload,
+            kein Node im Baum außer <code>Snd</code>.</td>
+          </tr>
+          <tr>
+            <td>Diagnose</td>
+            <td class="mono">_selftest.gd</td>
+            <td>Headless-Parse-Check + Logik-Assertions (Chain-Split, Gift-Tauchgang,
+            Stuck-Timeout — siehe Modul&nbsp;03&nbsp;C).</td>
+          </tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="plate-row">
+          <figure class="plate">
+            <img src="assets/fig-gameplay.png" alt="Laufende Welle mit Pilzfeld und Centipede">
+            <figcaption><b>FIG.&nbsp;01</b> Welle 1, echter Editor-Screenshot — Pilzfeld + Centipede oben rechts</figcaption>
+          </figure>
+          <figure class="plate">
+            <img src="assets/fig-goal.png" alt="Goal-&-Scoring-Hilfeseite">
+            <figcaption><b>FIG.&nbsp;02</b> Goal-&amp;-Scoring-Hilfeseite aus dem Spiel selbst — dieselben Formen/Farben wie die echten <code>_draw()</code>-Sprites</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============================================================= 02 -->
+      <section class="mod" id="sec-02">
+        <div class="mod__head"><span class="mod__num">02</span><h2>Szenenaufbau &amp; Kollisionsmodell</h2></div>
+        <p class="mod__sub">eine feste Szene, alles Übrige zur Laufzeit instanziiert — und kein einziges Area2D</p>
+
+        <p>Genau wie bei den Schwesterprojekten gibt es nur <strong>eine</strong> fest verdrahtete
+        Szene, <code>game.tscn</code>. Alles, was während des Spiels an Pilzen/Gegnern/Kugeln
+        auftaucht, wird <strong>zur Laufzeit</strong> instanziiert. Eine Besonderheit gegenüber
+        Tetris/Pacman/Galaga: <code>CentipedeChain</code> selbst ist <strong>kein Node</strong> —
+        eine reine <code>RefCounted</code>-Klasse, die N <code>CentipedeSegment</code>-Node-Referenzen
+        hält und ihnen jeden Tick eine neue Zielzelle zuweist. Sie lebt nirgends im Szenenbaum, nur
+        in <code>game.gd</code>s <code>_chains</code>-Array.</p>
+
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i> game.tscn (fest verdrahtet)</span>
+          <span><i style="background:var(--amber)"></i> zur Laufzeit instanziiert</span>
+          <span><i style="background:var(--info)"></i> RefCounted / Callable (kein Node)</span>
+        </div>
+
+        <figure class="plate">
+          <img src="assets/fig-scenetree.png" alt="Szenenbaum- und Abhängigkeitsdiagramm">
+          <figcaption><b>FIG.&nbsp;03</b> Szenenbaum von game.tscn, wer welche Laufzeit-Szene erzeugt, und wo <code>CentipedeChain</code> sitzt</figcaption>
+        </figure>
+
+        <h3>Kein Area2D — Kollision ist ein einziger Distanz-Check pro Frame</h3>
+        <p>Jede andere Godot-2D-Vorlage in diesem Lernpfad nutzt <code>Area2D</code> +
+        <code>area_entered</code>-Signale mit echten Kollisionsschichten. Hier bewusst <strong>nicht</strong>:
+        das Spielfeld ist ein festes Zellgitter (<code>FieldGrid</code>, 18×28 Zellen à 30px), und
+        praktisch jede Gefahr bewegt sich ohnehin nur zwischen Zellmittelpunkten — ein simpler
+        <code>Vector2.distance_to()</code>-Vergleich pro Frame ist hier günstiger und direkter als
+        ein Physik-Layer-Setup für ein knappes Dutzend verschiedener Objekttypen. Der Preis: die
+        Prüfreihenfolge in <code>_check_bullet_collisions()</code> entscheidet, WEM eine Kugel
+        „gehört", wenn sich zwei Treffer im selben Frame überlappen würden — es gibt keinen
+        Physik-Server, der das für einen entscheidet.</p>
+
+        <div class="tbl-wrap">
+        <table class="pinout">
+          <thead><tr><th>Reihenfolge</th><th>Prüfung</th><th>Bei Treffer</th></tr></thead>
+          <tbody>
+          <tr><td>1</td><td><code>_bullet_vs_mushroom()</code></td><td>Pilz nimmt Schaden/stirbt, Kugel weg — <code>continue</code> zur nächsten Kugel, andere Checks entfallen für diese Kugel</td></tr>
+          <tr><td>2</td><td><code>_bullet_vs_centipede()</code></td><td>Segment/Kopf stirbt, Kette splittet ggf.</td></tr>
+          <tr><td>3</td><td><code>_bullet_vs_spider()</code></td><td>Punkte nach Nähe zum Spieler gestaffelt</td></tr>
+          <tr><td>4</td><td><code>_bullet_vs_flea()</code></td><td>200 Punkte fix</td></tr>
+          <tr><td>5</td><td><code>_bullet_vs_scorpion()</code></td><td>1000 Punkte fix</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <p><code>_check_player_collisions()</code> läuft spiegelbildlich (Centipede-Segmente → Spider →
+        Flea → Scorpion, erster Treffer gewinnt), aber nur bei <code>not _player.invulnerable</code>
+        — siehe Modul&nbsp;03&nbsp;C.</p>
+      </section>
+
+      <!-- ============================================================= 03 -->
+      <section class="mod" id="sec-03">
+        <div class="mod__head"><span class="mod__num">03</span><h2>Wesentliche Code-Ausschnitte</h2></div>
+        <p class="mod__sub">Steuerung → Centipede-Kette → Bottom-Row-Fix → Gegner-KI → Zustandsautomat → Punkte</p>
+
+        <h3><span class="k">A</span>Steuerung — SPEED-Deckel für Digital, 1:1-Snapping für Zeiger</h3>
+        <p>Tastatur/Gamepad haben keine „aktuelle Zielposition", nur eine Richtung — dafür bleibt
+        die SPEED-Konstante reserviert. Maus/Touch geben dagegen bereits eine absolute Zielposition
+        vor; ein geschwindigkeitsgedeckeltes <code>move_toward()</code> dorthin läse sich als
+        Nachziehen, sobald der Zeiger schneller springt als das Tempo-Limit — direktes Zuweisen
+        (pro Achse, damit ein Pilz nur die blockierte Achse stoppt) hat dieses Problem nicht:</p>
+        <div class="code">
+          <div class="tab"><span>player.gd — _snap_to()</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <pre><code>func _snap_to(target: Vector2) -&gt; void:
+    var tx := Vector2(target.x, position.y)
+    if not is_blocked.call(tx):
+        position.x = target.x
+    var ty := Vector2(position.x, target.y)
+    if not is_blocked.call(ty):
+        position.y = target.y</code></pre>
+        </div>
+
+        <h3><span class="k">B</span>Centipede-Bewegung — eine Kette folgt der Route ihres Kopfes</h3>
+        <p>Nur der Kopf entscheidet pro Grid-Tick die Richtung; jede neue Kopfzelle wird vorn in
+        <code>_path</code> geschoben und auf <code>segments.size()</code> gekappt — Segment&nbsp;<code>i</code>
+        übernimmt einfach <code>_path[i]</code> ("Schlange folgt der Route des Kopfes", klassischer
+        Trick, macht auch Splits trivial: <code>_reseed_path()</code> sät <code>_path</code> aus den
+        AKTUELLEN Zellen neu, kein sichtbarer Sprung).</p>
+        <div class="code">
+          <div class="tab"><span>centipede_chain.gd — _advance()</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <pre><code>func _advance() -&gt; void:
+    var head := _path[0]
+    var new_cell: Vector2i
+    if _diving:
+        if head.y &gt;= FieldGrid.field_bottom_row():
+            _diving = false
+            new_cell = head
+        else:
+            new_cell = Vector2i(head.x, head.y + 1)
+    else:
+        var next_col := head.x + dir
+        var in_bounds := next_col &gt;= 0 and next_col &lt; FieldGrid.COLS
+        if in_bounds and not blocked.call(next_col, head.y):
+            new_cell = Vector2i(next_col, head.y)
+        elif in_bounds and poisoned.call(next_col, head.y):
+            _diving = true    <span class="c1"># Gift-Pilz: KEIN Wenden, senkrecht durchtauchen</span>
+            new_cell = Vector2i(head.x, mini(head.y + 1, FieldGrid.field_bottom_row()))
+        else:
+            var new_row: int = mini(head.y + 1, FieldGrid.field_bottom_row())
+            dir = -dir         <span class="c1"># normale Blockade: wenden + eine Reihe tiefer</span>
+            new_cell = Vector2i(head.x, new_row)
+    _path.push_front(new_cell)
+    ...</code></pre>
+        </div>
+
+        <p>Ein Treffer auf ein Rumpfsegment teilt die Kette in zwei unabhängige Züge — die Methode
+        gibt genug zurück, dass <code>game.gd</code> Punkte/Pilz/Sound/Popup entscheiden kann, ohne
+        selbst irgendetwas über den internen Zustand der Kette zu wissen:</p>
+        <div class="code">
+          <div class="tab"><span>centipede_chain.gd — hit()</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <pre><code>func hit(index: int) -&gt; Dictionary:
+    var seg := segments[index]
+    var cell := Vector2i(seg.col, seg.row)
+    var tail: Array[CentipedeSegment] = []
+    if index + 1 &lt; segments.size():
+        tail = segments.slice(index + 1, segments.size())
+    segments = segments.slice(0, index)
+    seg.queue_free()
+
+    var new_chain: CentipedeChain = null
+    if not tail.is_empty():
+        new_chain = CentipedeChain.new()
+        new_chain.segments = tail
+        ...
+        tail[0].is_head = true          <span class="c1"># Rumpfsegment wird zum neuen Kopf</span>
+        new_chain._reseed_path()
+
+    if not segments.is_empty():
+        segments[0].is_head = true
+        _reseed_path()
+
+    return {"cell": cell, "new_chain": new_chain, "empty": segments.is_empty()}</code></pre>
+        </div>
+
+        <h3><span class="k">C</span>Der Bottom-Row-Fund — kein sicherer Schussabstand, zwei Fixes</h3>
+        <p>Aus einem Live-Test mit dem Nutzer (2026-09-17/18): reicht eine Kette bis zur untersten
+        Feldreihe, zickzackt sie dort <strong>unbegrenzt</strong> weiter (Zeile im Code oben:
+        <code>mini(head.y + 1, field_bottom_row())</code> — die Reihe steigt nie über das Feldende).
+        Das ist exakt dieselbe Reihe, in der sich der Spieler bewegt. Kugeln fliegen nur nach oben —
+        um einen Kopf DORT zu treffen, muss der Spieler fast auf gleicher Höhe stehen, und dieser
+        Abstand liegt fast genau im Berührungs-Todesradius. Reiner Nahkampf, kein Sniping möglich.</p>
+
+        <div class="callout danger">
+          <b>Fix 1 — Respawn-Unverwundbarkeit</b> (<code>player.gd::set_invulnerable()</code>,
+          <code>RESPAWN_INVULN</code> = 2.0s): sobald die Kontrolle nach einer „GET READY!"-Pause
+          zurückkommt, ignoriert <code>_check_player_collisions()</code> Berührungen für 2 Sekunden
+          — Bewegung/Schuss bleiben aktiv, nur die Kollision wird übersprungen, Sprite blinkt sichtbar.
+        </div>
+        <div class="callout danger">
+          <b>Fix 2 — Auto-Clear-Timeout</b> (<code>centipede_chain.gd::STUCK_AT_BOTTOM_TIMEOUT</code>
+          = 15.0s): sitzt der KOPF einer Kette 15 Sekunden ununterbrochen in der untersten Reihe —
+          unabhängig von der Rumpflänge — entfernt <code>game.gd</code> die GESAMTE Kette automatisch,
+          Segment für Segment über denselben <code>hit()</code>-Pfad wie ein echter Treffer (jedes
+          Segment wird der Reihe nach zum „Kopf" und zählt 100&nbsp;Punkte — exakt das, was ein
+          Spieler bekäme, der die Kette selbst leerschießt). Garantiert, dass jede Welle in
+          endlicher Zeit fertig wird.
+        </div>
+        <div class="code">
+          <div class="tab"><span>game.gd — _auto_clear_stuck_head()</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <pre><code>func _auto_clear_stuck_head(chain: CentipedeChain) -&gt; void:
+    _wave_auto_cleared = true
+    var current: CentipedeChain = chain
+    var total_pts := 0
+    var last_cell := Vector2i.ZERO
+    while current != null and not current.segments.is_empty():
+        var result: Dictionary = current.hit(0)   <span class="c1"># immer den AKTUELLEN Kopf</span>
+        last_cell = result.cell
+        total_pts += 100
+        current = result.new_chain                 <span class="c1"># Rest-Rumpf wird zum nächsten Kopf</span>
+    _add_mushroom_from_hit(last_cell)
+    _add_score(total_pts)
+    _spawn_score_popup(FieldGrid.cell_to_pixel(last_cell.x, last_cell.y), total_pts)
+    _chains.erase(chain)</code></pre>
+        </div>
+        <p><code>_wave_auto_cleared</code> lässt <code>_check_wave_clear()</code> danach
+        „AUTO-CLEARED!" statt „CLEARED!" anzeigen — der Spieler soll den Unterschied erkennen (siehe
+        Teil&nbsp;E unten).</p>
+
+        <h3><span class="k">D</span>Gegner-KI — drei sehr kleine, unabhängige Zustandsmaschinen</h3>
+        <p><strong>Flea</strong> fällt spaltengerade senkrecht und sät dabei neue Pilze — gedeckelt,
+        seit ein Lauf über alle ~28 Reihen im Schnitt ~10 Pilze in EINER Spalte sätte (praktisch eine
+        Wand):</p>
+        <div class="code">
+          <div class="tab"><span>flea.gd</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <pre><code>const DROP_CHANCE := 0.35   <span class="c1"># pro gekreuzter Reihe</span>
+const MAX_DROPS := 4        <span class="c1"># hartes Limit pro Fall-Lauf (2026-09-18-Fix)</span>
+...
+if _drops_left &gt; 0 and _drop_t &lt;= 0.0 and randf() &lt; DROP_CHANCE and not has_mushroom.call(col, row):
+    add_mushroom.call(col, row)
+    _drop_t = DROP_COOLDOWN
+    _drops_left -= 1</code></pre>
+        </div>
+        <p><strong>Spider</strong> springt erratisch in einer Bounce-Box herum und frisst jeden Pilz,
+        den er kreuzt — die Box deckt seit demselben Fund das GESAMTE Feld ab, nicht nur die
+        Spielerzone (sonst dünnt nichts je den oberen Bereich aus, den die Flea zusetzt):</p>
+        <div class="code">
+          <div class="tab"><span>game.gd — _spawn_spider()</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <pre><code>var top: float = FieldGrid.FIELD_TOP                                  <span class="c1"># ganzes Feld, nicht nur Spielerzone</span>
+var bottom: float = FieldGrid.FIELD_TOP + FieldGrid.ROWS * FieldGrid.CELL
+var zone_top: float = FieldGrid.cell_to_pixel(0, FieldGrid.zone_top_row(_cfg.movement_zone)).y
+_spider.setup(Vector2(start_x, zone_top), top, bottom)   <span class="c1"># startet sichtbar in Spielernähe</span></code></pre>
+        </div>
+        <p><strong>Scorpion</strong> kriecht geradlinig durch eine Reihe außerhalb der Spielerzone
+        und vergiftet jeden gekreuzten Pilz — die eigentliche „Gift-Quelle" für Teil&nbsp;B oben:</p>
+        <div class="code">
+          <div class="tab"><span>scorpion.gd — _process()</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <pre><code>func _process(delta: float) -&gt; void:
+    position.x += dir * SPEED * delta
+    var cell := FieldGrid.pixel_to_cell(position)
+    if FieldGrid.in_bounds(cell.x, row):
+        poison_mushroom.call(cell.x, row)   <span class="c1"># mushroom.gd::poison(), rot eingefärbt</span></code></pre>
+        </div>
+
+        <h3><span class="k">E</span>Zustandsautomat &amp; Banner — ein Mechanismus, drei Texte</h3>
+        <p>Ein einziger <code>_begin_transition(text, duration, on_done)</code> friert Kette-Ticks,
+        Gegner-Spawns, Kollisionen UND Spieler-Input für <code>duration</code> Sekunden ein, während
+        <code>_hud.show_banner()</code> das zentrierte Label ein-/hält-/ausblendet:</p>
+        <div class="tbl-wrap">
+        <table class="pinout">
+          <thead><tr><th>State</th><th>Banner</th><th>Dauer</th><th>Auslöser</th></tr></thead>
+          <tbody>
+          <tr><td><code>TITLE</code></td><td>—</td><td>—</td><td>App-Start / Main&nbsp;Menu; <code>_player.input_enabled = false</code></td></tr>
+          <tr><td><code>TRANSITION</code></td><td>„GET READY!"</td><td>3,0s</td><td>Neue Runde ODER Respawn nach Treffer — Spieler steht sichtbar am Spawnpunkt, aber bewegungsunfähig</td></tr>
+          <tr><td><code>TRANSITION</code></td><td>„CLEARED!"</td><td>2,0s</td><td><code>_chains.is_empty()</code> durch echte Treffer</td></tr>
+          <tr><td><code>TRANSITION</code></td><td>„AUTO-CLEARED!"</td><td>2,0s</td><td><code>_chains.is_empty()</code>, aber <code>_wave_auto_cleared</code> war während dieser Welle mindestens einmal <code>true</code></td></tr>
+          <tr><td><code>PLAYING</code></td><td>—</td><td>—</td><td>Zwischen den Bannern — volle Kette-/Kollisions-/Spawn-Logik läuft</td></tr>
+          <tr><td><code>GAMEOVER</code></td><td>—</td><td>—</td><td>Letztes Leben verloren — kein Banner, direkt zum Game-Over-Screen</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3><span class="k">F</span>Punktevergabe</h3>
+        <div class="tbl-wrap">
+        <table class="pinout">
+          <thead><tr><th>Ereignis</th><th>Punkte</th><th>Quelle</th></tr></thead>
+          <tbody>
+          <tr><td>Pilz-Treffer (nicht zerstört)</td><td>0</td><td rowspan="7"><code>game.gd</code> — <code>_bullet_vs_*()</code> / <code>_auto_clear_stuck_head()</code></td></tr>
+          <tr><td>Pilz zerstört</td><td>1</td></tr>
+          <tr><td>Centipede-Rumpfsegment</td><td>10</td></tr>
+          <tr><td>Centipede-Kopf <i>(auch nach Split/Auto-Clear — jedes Segment wird der Reihe nach zum Kopf)</i></td><td>100</td></tr>
+          <tr><td>Spider — je näher am Spieler beim Treffer, desto mehr</td><td>900 / 600 / 300 / 100</td></tr>
+          <tr><td>Flea</td><td>200</td></tr>
+          <tr><td>Scorpion</td><td>1000</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="callout info">
+          <b>Design-Entscheidung:</b> Die Hall-of-Fame-Rangliste sortiert weiterhin rein nach Score,
+          nicht nach erreichter Welle (klassische Arcade-Konvention, auch das Original von 1981
+          rankt so). Damit ein hoher Score aus einem langen Kampf in einer frühen Welle nicht
+          mysteriös wirkt, zeigt die Liste seit diesem Release zusätzlich die erreichte Welle
+          („W&lt;n&gt;") neben dem Score — sichtbar statt versteckt, aber das Rang-Kriterium bleibt Score.
+        </div>
+      </section>
+
+      <!-- ============================================================= 04 -->
+      <section class="mod" id="sec-04">
+        <div class="mod__head"><span class="mod__num">04</span><h2>Signale &amp; Callables</h2></div>
+        <p class="mod__sub">wer meldet was an wen — und warum die meisten Verbindungen KEINE Signale sind</p>
+
+        <p>Nur die UI-/Menü-Schicht nutzt echte Godot-<code>signal</code>s (Nutzer-Events, an
+        beliebig viele Hörer). Jede Gefahr/jedes Gegner-Skript dagegen bekommt eine feste,
+        <strong>1:1</strong> Frage-Antwort-Beziehung zu <code>game.gd</code> per
+        <code>Callable</code>-Feld — kein Signal-Overhead für „darf ich mich hier hinbewegen?"
+        oder „friss diesen einen Pilz", wenn es sowieso immer nur einen einzigen Empfänger gibt.</p>
+
+        <div class="tbl-wrap">
+        <table class="pinout">
+          <thead><tr><th>Signal</th><th>Emitter</th><th>Empfänger</th><th>Bedeutung</th></tr></thead>
+          <tbody>
+          <tr><td><code>fire_requested(from_pos)</code></td><td>Player</td><td><code>Game._on_fire_requested</code></td><td>Bullet spawnen + Schuss-Sound</td></tr>
+          <tr><td><code>pause_pressed</code> / <code>mute_pressed</code></td><td>Hud</td><td><code>Game._toggle_pause</code> / <code>_toggle_mute</code></td><td>HUD-Buttons oben rechts</td></tr>
+          <tr><td><code>fire_down</code> / <code>fire_up</code></td><td>TouchControls</td><td>Lambda → <code>_player.fire_held</code></td><td>Touch-FIRE-Button (getrennt vom Bewegungs-Finger)</td></tr>
+          <tr><td><code>play_pressed</code> / <code>resume_pressed</code> /<br><code>restart_pressed</code> / <code>quit_to_menu_pressed</code></td><td>Menus</td><td>Game</td><td>Menü-Navigation</td></tr>
+          <tr><td><code>settings_changed(cfg)</code></td><td>Menus</td><td><code>Game._apply_settings</code></td><td>Bewegungszone/Schwierigkeit live übernehmen</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="tbl-wrap">
+        <table class="pinout">
+          <thead><tr><th>Callable-Feld</th><th>Auf</th><th>Zeigt auf</th><th>Zweck</th></tr></thead>
+          <tbody>
+          <tr><td><code>is_blocked</code></td><td>Player</td><td><code>Game._is_blocked_at</code></td><td>Pilz-Lookup für Spielerbewegung</td></tr>
+          <tr><td><code>blocked</code> / <code>poisoned</code></td><td>CentipedeChain</td><td><code>Game._cell_blocked</code> / <code>_cell_poisoned</code></td><td>Pilz-/Gift-Lookup für Kopf-Entscheidung</td></tr>
+          <tr><td><code>eat_mushroom</code></td><td>Spider</td><td><code>Game._spider_eat</code></td><td>Pilz an aktueller Zelle entfernen</td></tr>
+          <tr><td><code>add_mushroom</code> / <code>has_mushroom</code></td><td>Flea</td><td><code>Game._add_mushroom</code> / Lambda</td><td>Neuen Pilz säen, Doppel-Belegung vermeiden</td></tr>
+          <tr><td><code>poison_mushroom</code></td><td>Scorpion</td><td><code>Game._poison_mushroom_at</code></td><td>Pilz an aktueller Zelle vergiften</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="callout">
+          <b>Ehrlicher Fund:</b> <code>CentipedeChain</code> besitzt zusätzlich ein
+          <code>reached_player: Callable</code>-Feld (wird sogar korrekt beim Split an die neue
+          Teilkette weitergereicht) — aber <code>game.gd</code> setzt es nie, und nichts ruft es
+          je auf. Spieler-Berührung läuft stattdessen zentral über
+          <code>_check_player_collisions()</code>s Distanz-Check jeden Frame (Modul&nbsp;02);
+          dieses Feld ist toter Code aus einem früheren Entwurf.
+        </div>
+      </section>
+
+      <!-- ============================================================= 05 -->
+      <section class="mod" id="sec-05">
+        <div class="mod__head"><span class="mod__num">05</span><h2>Optional: UML-Übersicht</h2></div>
+        <p class="mod__sub">wo genau die RefCounted-Klasse zwischen den Nodes sitzt</p>
+
+        <p>Eine vereinfachte Klassen-/Beziehungsübersicht der oben genannten Kernklassen — Rauten
+        bedeuten „besitzt", gestrichelte orange Pfeile „instanziiert zur Laufzeit", gepunktete
+        blaue Linien einen <code>Callable</code>-Rückkanal oder eine reine Utility-Referenz
+        (<code>FieldGrid</code>).</p>
+
+        <figure class="plate">
+          <img src="assets/fig-uml.png" alt="Vereinfachtes Klassendiagramm">
+          <figcaption><b>FIG.&nbsp;04</b> Klassendiagramm der Kern-Gameplay-Klassen (Graphviz) — <code>CentipedeChain</code> bewusst blau markiert: die einzige zentrale Klasse ohne eigenen Platz im Szenenbaum</figcaption>
+        </figure>
+
+        <div class="callout">
+          <b>Hinweis:</b> Das Diagramm bildet bewusst nur die für Bewegung/Kollision/Punkte
+          relevanten Klassen ab — Utility-/Persistenz-Klassen wie <code>UiStyle</code>,
+          <code>HallOfFame</code>, <code>GameSettings</code>, <code>SoundManager</code>,
+          <code>Bullet</code> oder <code>ScorePopup</code> sind der Übersichtlichkeit halber
+          ausgelassen.
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer>
+    <p>Centipede — Godot&nbsp;4.7.1 · GL&nbsp;Compatibility · erstellt von Claude Sonnet&nbsp;5</p>
+    <p>Quelle: aktueller Stand von projects/centipede/*.gd (v1.0.0) — kein archiviertes Wissen</p>
+  </footer>
+</div>
+
+<script>
+  // Experimental: recolor code text using the real Godot 4.7 default editor
+  // syntax palette (see the .gd-* CSS rules and the project CLAUDE.md entry
+  // for where the exact values came from), so the readability question can
+  // actually be judged instead of guessed at. A small hand-rolled tokenizer,
+  // not a real parser — good enough to color keywords/strings/numbers/
+  // comments/types/calls correctly for the GDScript shown here, not meant to
+  // be a general-purpose highlighter. Runs once per direction and caches
+  // both renderings on the element so flipping back and forth is instant.
+  var GD_FLOW = ["if","elif","else","for","while","return","break","continue","match","pass","await"];
+  var GD_DECL = ["var","const","func","class_name","extends","signal","enum","static",
+    "preload","load","and","or","not","in","is","as","void","self"];
+  var GD_TYPES = ["int","float","bool","String","Array","Dictionary","Vector2","Vector2i",
+    "Node2D","Control","Callable","RefCounted","Color","CentipedeChain","CentipedeSegment"];
+
+  function gdEscape(s){
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function gdHighlight(src){
+    var out = "", i = 0, n = src.length;
+    var flow = {}, decl = {}, types = {};
+    GD_FLOW.forEach(function(w){ flow[w] = true; });
+    GD_DECL.forEach(function(w){ decl[w] = true; });
+    GD_TYPES.forEach(function(w){ types[w] = true; });
+    while (i < n){
+      var c = src[i];
+      if (c === "#"){
+        var j = src.indexOf("\n", i);
+        if (j === -1) j = n;
+        out += '<span class="gd-c">' + gdEscape(src.slice(i, j)) + '</span>';
+        i = j;
+        continue;
+      }
+      if (c === '"' || c === "'"){
+        var q = c, k = i + 1;
+        while (k < n && src[k] !== q) k++;
+        k = Math.min(k + 1, n);
+        out += '<span class="gd-s">' + gdEscape(src.slice(i, k)) + '</span>';
+        i = k;
+        continue;
+      }
+      if (c === "@"){
+        var a = i + 1;
+        while (a < n && /[A-Za-z_]/.test(src[a])) a++;
+        out += '<span class="gd-a">' + gdEscape(src.slice(i, a)) + '</span>';
+        i = a;
+        continue;
+      }
+      if (/[0-9]/.test(c) && !/[A-Za-z_0-9]/.test(src[i-1] || "")){
+        var m = i;
+        while (m < n && /[0-9.]/.test(src[m])) m++;
+        out += '<span class="gd-n">' + gdEscape(src.slice(i, m)) + '</span>';
+        i = m;
+        continue;
+      }
+      if (/[A-Za-z_]/.test(c)){
+        var w = i;
+        while (w < n && /[A-Za-z0-9_]/.test(src[w])) w++;
+        var word = src.slice(i, w);
+        var cls = null;
+        if (flow[word]) cls = "gd-kf";
+        else if (decl[word]) cls = "gd-kd";
+        else if (types[word]) cls = "gd-t";
+        else if (src[w] === "(") cls = (/func\s+$/.test(src.slice(Math.max(0, i - 5), i)) ? "gd-fd" : "gd-fn");
+        else if (/^[A-Z]/.test(word)) cls = "gd-t";
+        out += cls ? ('<span class="' + cls + '">' + gdEscape(word) + '</span>') : gdEscape(word);
+        i = w;
+        continue;
+      }
+      out += gdEscape(c);
+      i++;
+    }
+    return out;
+  }
+
+  function toggleGodotSyntax(){
+    var on = !document.body.classList.contains('godot-syntax');
+    document.body.classList.toggle('godot-syntax', on);
+    var btn = document.getElementById('syntaxToggleBtn');
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    document.querySelectorAll('.code code').forEach(function(el){
+      if (on){
+        if (el.dataset.gdHtml === undefined){
+          el.dataset.dossierHtml = el.innerHTML;
+          el.dataset.gdHtml = gdHighlight(el.textContent);
+        }
+        el.innerHTML = el.dataset.gdHtml;
+      } else if (el.dataset.dossierHtml !== undefined){
+        el.innerHTML = el.dataset.dossierHtml;
+      }
+    });
+  }
+</script>
+<script>
+  // Section-highlight in the module rail — a plain, motion-respecting toggle,
+  // not an animated scroll effect.
+  (function(){
+    var links = Array.from(document.querySelectorAll('#rail a'));
+    var sections = links.map(function(a){ return document.querySelector(a.getAttribute('href')); });
+    if (!('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        var idx = sections.indexOf(entry.target);
+        if (idx === -1) return;
+        if (entry.isIntersecting){
+          links.forEach(function(l){ l.classList.remove('active'); });
+          links[idx].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+    sections.forEach(function(s){ if (s) io.observe(s); });
+  })();
+</script>

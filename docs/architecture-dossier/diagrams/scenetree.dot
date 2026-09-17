@@ -1,0 +1,59 @@
+digraph SceneTree {
+  bgcolor="#050d05";
+  rankdir=TB;
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=13, color="#39ff14", fontcolor="#eafff0", style=filled];
+  edge [color="#4a7a4a", fontname="Helvetica", fontsize=11, fontcolor="#8fcf8f"];
+
+  subgraph cluster_static {
+    label="game.tscn (fest verdrahtete Szene)";
+    fontcolor="#39ff14"; color="#1c3a1c"; style="rounded"; bgcolor="#0b170b";
+
+    Game [label="Game : Node2D\n(game.gd)\nState-Machine + einziger Ort\nmit Kollisionslogik", fillcolor="#122412", shape=box];
+    Player [label="Player : Node2D\n(player.tscn / player.gd)\n_draw()-Dreieck, kein Area2D", fillcolor="#122412", shape=box];
+    HUD [label="HUD : CanvasLayer", fillcolor="#0f1e0f", shape=box];
+    HUDRoot [label="Root : Control\n(hud.gd)", fillcolor="#122412", shape=box];
+    TouchLayer [label="TouchLayer : CanvasLayer", fillcolor="#0f1e0f", shape=box];
+    TouchRoot [label="Root : Control\n(touch_controls.gd)\nFIRE-Button", fillcolor="#122412", shape=box];
+    Menus [label="Menus : CanvasLayer", fillcolor="#0f1e0f", shape=box];
+    MenusRoot [label="Root : Control\n(menus.gd)\nbaut alle Screens im Code", fillcolor="#122412", shape=box];
+
+    Game -> Player;
+    Game -> HUD;
+    HUD -> HUDRoot;
+    Game -> TouchLayer;
+    TouchLayer -> TouchRoot;
+    Game -> Menus;
+    Menus -> MenusRoot;
+  }
+
+  subgraph cluster_dynamic {
+    label="zur Laufzeit instanziiert (preload().instantiate()) — alle Node2D mit eigenem _draw(), KEIN Area2D/CollisionShape2D im ganzen Projekt";
+    fontcolor="#ffb347"; color="#4a3418"; style="rounded"; bgcolor="#241a0c";
+
+    Mushroom [label="Mushroom : Node2D\n(mushroom.tscn)\n4 HP, poisonbar", fillcolor="#2a1e0e", shape=box];
+    Bullet [label="Bullet : Node2D\n(bullet.tscn)", fillcolor="#2a1e0e", shape=box];
+    Segment [label="CentipedeSegment : Node2D\n(centipede_segment.tscn)\nnur Lerp-Interpolation + Draw", fillcolor="#2a1e0e", shape=box];
+    Spider [label="Spider : Node2D\n(spider.tscn)", fillcolor="#2a1e0e", shape=box];
+    Flea [label="Flea : Node2D\n(flea.tscn)", fillcolor="#2a1e0e", shape=box];
+    Scorpion [label="Scorpion : Node2D\n(scorpion.tscn)", fillcolor="#2a1e0e", shape=box];
+    ScorePopup [label="ScorePopup : Node2D\n(score_popup.tscn)", fillcolor="#2a1e0e", shape=box];
+  }
+
+  subgraph cluster_refcounted {
+    label="reine RefCounted-Logik (kein Node, kein Platz im Baum)";
+    fontcolor="#66ccff"; color="#173a4a"; style="rounded"; bgcolor="#0c1e24";
+
+    Chain [label="CentipedeChain : RefCounted\n(centipede_chain.gd)\nbesitzt N Segment-Referenzen,\nentscheidet Richtung/Split/Tauchgang", fillcolor="#0e2430", shape=box];
+  }
+
+  Game -> Mushroom [label="_add_mushroom()", style=dashed, color="#ffb347"];
+  Game -> Bullet [label="_on_fire_requested()", style=dashed, color="#ffb347"];
+  Game -> Segment [label="_spawn_centipede()", style=dashed, color="#ffb347"];
+  Game -> Spider [label="_spawn_spider()", style=dashed, color="#ffb347"];
+  Game -> Flea [label="_maybe_spawn_flea()", style=dashed, color="#ffb347"];
+  Game -> Scorpion [label="_spawn_scorpion()", style=dashed, color="#ffb347"];
+  Game -> ScorePopup [label="_spawn_score_popup()", style=dashed, color="#ffb347"];
+  Game -> Chain [label="new CentipedeChain()\nin _spawn_centipede()", style=dotted, color="#66ccff"];
+  Chain -> Segment [label="setup()/move_to()\nsteuert Position", style=dotted, color="#66ccff"];
+}

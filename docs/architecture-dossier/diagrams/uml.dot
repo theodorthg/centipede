@@ -1,0 +1,45 @@
+digraph UML {
+  bgcolor="#050d05";
+  rankdir=TB;
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=12, shape=box, style="filled,rounded", color="#39ff14", fontcolor="#eafff0", fillcolor="#122412"];
+  edge [color="#6f9f6f", fontname="Helvetica", fontsize=10.5, fontcolor="#8fcf8f"];
+
+  Game [label="Game : Node2D\n—\nstate: TITLE|PLAYING|TRANSITION|GAMEOVER\n_chains: Array[CentipedeChain]\n_mushrooms: Dictionary\n—\n_check_bullet_collisions()\n_check_player_collisions()\n_check_wave_clear()", fillcolor="#183018", penwidth=2];
+
+  Player [label="Player : Node2D\n—\nalive, input_enabled, invulnerable\n—\n_snap_to() (Maus/Touch)\n_try_move() (Tastatur/Pad)"];
+  Chain [label="CentipedeChain : RefCounted\n—\nsegments[], dir, _diving\n_stuck_at_bottom_t\n—\nstep() / hit(i) / is_stuck()", fillcolor="#0e2430", color="#66ccff"];
+  Segment [label="CentipedeSegment : Node2D\n—\nis_head, col, row\n—\nmove_to() (lerpt zur Zielzelle)"];
+  Mushroom [label="Mushroom : Node2D\n—\nhp, poisoned\n—\nhit() / poison()"];
+  Spider [label="Spider : Node2D\n—\nbox_top, box_bottom\n—\nscore_for_distance()"];
+  Flea [label="Flea : Node2D\n—\nMAX_DROPS = 4"];
+  Scorpion [label="Scorpion : Node2D\n—\npoison_mushroom: Callable"];
+  FieldGrid [label="FieldGrid : static\n—\nCELL, COLS, ROWS, Zone\n—\ncell_to_pixel() / pixel_to_cell()\nzone_top_row() / field_bottom_row()", fillcolor="#0e2430", color="#66ccff"];
+  Hud [label="Hud : Control\n—\nshow_banner() / hide_banner()"];
+  Menus [label="Menus : Control\n—\nScreen enum (START…HIGHSCORES)\n_button() / _wrap_focus_vertically()"];
+
+  Game -> Player [label="besitzt\n(1 fest verdrahtet)", dir=none, arrowtail=diamond];
+  Game -> Chain [label="besitzt\n(0..n, dynamisch)", dir=none, arrowtail=diamond];
+  Chain -> Segment [label="besitzt\n(N, folgt Kopf-Route)", dir=none, arrowtail=diamond];
+  Game -> Mushroom [label="instanziiert\nzur Laufzeit", style=dashed, color="#ffb347", fontcolor="#ffb347"];
+  Game -> Spider [label="instanziiert", style=dashed, color="#ffb347", fontcolor="#ffb347"];
+  Game -> Flea [label="instanziiert", style=dashed, color="#ffb347", fontcolor="#ffb347"];
+  Game -> Scorpion [label="instanziiert", style=dashed, color="#ffb347", fontcolor="#ffb347"];
+  Game -> Hud [label="besitzt\n(1 fest verdrahtet)", dir=none, arrowtail=diamond];
+  Game -> Menus [label="besitzt\n(1 fest verdrahtet)", dir=none, arrowtail=diamond];
+
+  Player -> Game [label="is_blocked: Callable\n(game.gd::_is_blocked_at)", style=dotted];
+  Chain -> Game [label="blocked/poisoned: Callable\n(Pilz-Lookup)", style=dotted];
+  Spider -> Game [label="eat_mushroom: Callable", style=dotted];
+  Flea -> Game [label="add_mushroom/has_mushroom:\nCallable", style=dotted];
+  Scorpion -> Game [label="poison_mushroom: Callable", style=dotted];
+  Menus -> Game [label="play_pressed / resume_pressed /\nsettings_changed: Signal", style=dotted];
+  Hud -> Game [label="pause_pressed / mute_pressed:\nSignal", style=dotted];
+
+  Player -> FieldGrid [style=dotted, color="#66ccff", fontcolor="#66ccff"];
+  Chain -> FieldGrid [style=dotted, color="#66ccff", fontcolor="#66ccff"];
+  Segment -> FieldGrid [style=dotted, color="#66ccff", fontcolor="#66ccff"];
+  Game -> FieldGrid [style=dotted, color="#66ccff", fontcolor="#66ccff"];
+
+  { rank=same; Mushroom; Spider; Flea; Scorpion; }
+}
