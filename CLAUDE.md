@@ -158,6 +158,10 @@ Wave-Clear-Trigger → nächste Welle).
 
 ## Bekannte offene Punkte
 
+**Stand v1.0.0 (2026-09-18)**: Gameplay/Menüs/Balancing sind fertig, die
+beiden folgenden Punkte sind die einzigen noch offenen — beide warten auf
+Material vom Nutzer, kein Implementierungs-Blocker:
+
 - **Sound-Dateien sind vorerst nur Platzhalter** — `assets/sounds/*.wav`
   (alle 13 Keys aus `sound_manager.gd`s `SOUNDS`-Map) sind synthetische
   Bleeps/Noise-Bursts aus `assets/sounds/gen_placeholder_sfx.py` (reines
