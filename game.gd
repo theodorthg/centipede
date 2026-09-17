@@ -27,11 +27,12 @@ const FLEA_SCORE := 200
 const SCORPION_INTERVAL_MIN := 16.0
 const SCORPION_INTERVAL_MAX := 28.0
 const SCORPION_SCORE := 1000
-## How long the "CLEARED!" banner (+ fanfare) holds the game between waves —
-## see hud.gd's show_wave_cleared_banner(), which fades in/out within it.
-const WAVE_CLEAR_DELAY := 2.0
+## How long a banner ("CLEARED!" between waves, "GET READY!" at the start of
+## a life) holds all gameplay logic — see _begin_transition()/hud.gd's
+## show_banner(), which fades the text in/out within this same window.
+const TRANSITION_DELAY := 2.0
 
-enum State { TITLE, PLAYING, WAVECLEAR, GAMEOVER }
+enum State { TITLE, PLAYING, TRANSITION, GAMEOVER }
 
 const MushroomScene := preload("res://mushroom.tscn")
 const BulletScene := preload("res://bullet.tscn")
@@ -63,7 +64,8 @@ var _flea: Flea = null
 var _flea_check_t := 0.0
 var _scorpion: Scorpion = null
 var _scorpion_t := 0.0
-var _wave_clear_t := 0.0
+var _transition_t := 0.0
+var _transition_done: Callable
 
 var _last_window_size := Vector2i.ZERO
 var _cabinet_cam: Camera2D
@@ -117,7 +119,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not _touch:
 			_touch = true
 			get_tree().call_group("touch_layout_listeners", "apply_touch_layout")
-	if event.is_action_pressed("pause") and (_state == State.PLAYING or _state == State.WAVECLEAR):
+	if event.is_action_pressed("pause") and (_state == State.PLAYING or _state == State.TRANSITION):
 		_toggle_pause()
 	elif event.is_action_pressed("mute"):
 		_toggle_mute()
@@ -153,13 +155,16 @@ func _start_game() -> void:
 	_spawn_wave()
 	_player.reset(_spawn_point())
 	_player.visible = true
-	_player.input_enabled = true
-	_state = State.PLAYING
+	_player.input_enabled = false
 	get_tree().paused = false
 	_paused = false
 	_spider_t = randf_range(SPIDER_INTERVAL_MIN, SPIDER_INTERVAL_MAX)
 	_flea_check_t = FLEA_CHECK_INTERVAL
 	_scorpion_t = randf_range(SCORPION_INTERVAL_MIN, SCORPION_INTERVAL_MAX)
+	_begin_transition("GET READY!", TRANSITION_DELAY, _finish_start)
+
+func _finish_start() -> void:
+	_player.input_enabled = true
 
 func _spawn_point() -> Vector2:
 	return Vector2(DESIGN_WIDTH * 0.5,
@@ -215,7 +220,7 @@ func _is_blocked_at(pos: Vector2) -> bool:
 	return _mushrooms.has(Vector2i(cell.x, cell.y))
 
 func _clear_field() -> void:
-	_hud.hide_wave_cleared_banner()
+	_hud.hide_banner()
 	_clear_mushrooms()
 	for c in _chains:
 		c.free_all()
@@ -252,11 +257,14 @@ func _process(delta: float) -> void:
 		_last_window_size = win_now
 		_apply_display_mode()
 
-	if _state == State.WAVECLEAR:
+	if _state == State.TRANSITION:
 		if not _paused:
-			_wave_clear_t -= delta
-			if _wave_clear_t <= 0.0:
-				_finish_wave_clear()
+			_transition_t -= delta
+			if _transition_t <= 0.0:
+				var done := _transition_done
+				_state = State.PLAYING
+				_transition_done = Callable()
+				done.call()
 		return
 
 	if _state != State.PLAYING or _paused:
@@ -406,6 +414,7 @@ func _bullet_vs_flea(b: Node2D) -> bool:
 	if not is_instance_valid(_flea) or b.position.distance_to(_flea.position) >= Flea.RADIUS + 4.0:
 		return false
 	_add_score(FLEA_SCORE)
+	_spawn_score_popup(_flea.position, FLEA_SCORE)
 	b.queue_free()
 	_flea.queue_free()
 	_flea = null
@@ -454,38 +463,53 @@ func _check_player_collisions() -> void:
 		_kill_player()
 
 func _kill_player() -> void:
-	if not _player.alive:
+	if _state != State.PLAYING:
 		return
-	_player.alive = false
-	_player.input_enabled = false
 	_snd_play("player-death")
 	_lives -= 1
 	_hud.set_lives(_lives)
 	if _lives <= 0:
+		_player.alive = false
+		_player.input_enabled = false
 		_game_over()
 		return
-	await get_tree().create_timer(1.0).timeout
-	if _state != State.PLAYING:
-		return
+	# Same "GET READY!" beat as the start of a life (see _start_game()) —
+	# reposition right away so the player sees the ship sitting at the spawn
+	# point for the whole banner, not vanish-then-reappear.
 	_player.reset(_spawn_point())
+	_player.input_enabled = false
+	_begin_transition("GET READY!", TRANSITION_DELAY, _finish_respawn)
+
+func _finish_respawn() -> void:
 	_player.input_enabled = true
 
 ## Wave just cleared: hold PLAYING's per-frame logic (chain stepping, enemy
-## spawns, collisions) for WAVE_CLEAR_DELAY seconds while the "CLEARED!"
-## banner + fanfare play, THEN advance the wave counter and spawn the next
-## one — see _finish_wave_clear() and the State.WAVECLEAR branch in _process().
+## spawns, collisions, player input) for TRANSITION_DELAY seconds while the
+## "CLEARED!" banner + fanfare play, THEN advance the wave counter and spawn
+## the next one.
 func _check_wave_clear() -> void:
 	if _chains.is_empty():
-		_state = State.WAVECLEAR
-		_wave_clear_t = WAVE_CLEAR_DELAY
+		_player.input_enabled = false
 		_snd_play("wave-cleared")
-		_hud.show_wave_cleared_banner(WAVE_CLEAR_DELAY)
+		_begin_transition("CLEARED!", TRANSITION_DELAY, _finish_wave_clear)
 
 func _finish_wave_clear() -> void:
 	_wave += 1
 	_hud.set_wave(_wave)
 	_spawn_wave()
-	_state = State.PLAYING
+	_player.input_enabled = true
+
+## Freezes all per-frame gameplay logic (chain ticks, enemy spawns,
+## collisions — see the State.TRANSITION branch in _process()) for `duration`
+## seconds while `_hud` shows a centered banner, then calls `on_done`. Shared
+## by the wave-clear pause ("CLEARED!") and the "GET READY!" pause at the
+## start of a life (new game or respawn after a hit) — both give the player
+## an unthreatened beat before anything can move/shoot again.
+func _begin_transition(text: String, duration: float, on_done: Callable) -> void:
+	_state = State.TRANSITION
+	_transition_t = duration
+	_transition_done = on_done
+	_hud.show_banner(text, duration)
 
 func _add_score(n: int) -> void:
 	_score += n
@@ -503,7 +527,7 @@ func _game_over() -> void:
 
 # ------------------------------------------------------------------ pause --
 func _toggle_pause() -> void:
-	if _state != State.PLAYING and _state != State.WAVECLEAR:
+	if _state != State.PLAYING and _state != State.TRANSITION:
 		return
 	_paused = not _paused
 	get_tree().paused = _paused

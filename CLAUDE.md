@@ -169,29 +169,44 @@ gerastert, in `menus.gd::_build_help()` per `TextureRect`
   eingecheckt (nicht gitignored, wie bei tetris/galaga), damit der
   Web-Export sie ohne Inkscape-Abhängigkeit zur Laufzeit ausliefert.
 
-## Wave-Clear-Feedback & Punkte-Popups (Stand 2026-09-17)
+## Banner-Übergänge & Punkte-Popups (Stand 2026-09-17, erweitert um
+## „GET READY!" für Spielstart/Respawn)
 
-- **Wave-Übergang** (`game.gd`, `State.WAVECLEAR`): sobald `_chains` leer
-  ist, hält `_check_wave_clear()` die normale PLAYING-Logik (Chain-Ticks,
-  Gegner-Spawns, Kollisionen) für `WAVE_CLEAR_DELAY` (2.0s) an, statt sofort
-  die nächste Welle zu starten — `_hud.show_wave_cleared_banner()` blendet
-  währenddessen ein zentriertes „CLEARED!"-Label (`UiStyle.impact_label`-Look)
-  ein/hält/aus (Tween, 0.3s/Rest/0.3s bei 2.0s Gesamtdauer), zusätzlich spielt
-  `_snd_play("wave-cleared")` die Fanfare. Erst danach (`_finish_wave_clear()`)
-  erhöht sich `_wave` und `_spawn_wave()` läuft. Pause (P/Esc) funktioniert
-  auch während WAVECLEAR (`_toggle_pause()`/`_unhandled_input()` prüfen beide
-  Zustände) — der Countdown pausiert dabei mit (`_paused`-Gate in `_process()`).
+- **Gemeinsamer Übergangs-Mechanismus** (`game.gd`, `State.TRANSITION`,
+  `_begin_transition(text, duration, on_done)`): friert die normale
+  PLAYING-Logik (Chain-Ticks, Gegner-Spawns, Kollisionen, Spieler-Input) für
+  `TRANSITION_DELAY` (2.0s) ein, während `_hud.show_banner(text, duration)`
+  ein zentriertes Label (`UiStyle.impact_label`-Look) ein-/hält-/ausblendet
+  (Tween, 0.3s/Rest/0.3s bei 2.0s Gesamtdauer). Nach Ablauf ruft `_process()`
+  den in `_begin_transition()` übergebenen `on_done`-Callback auf und schaltet
+  zurück auf `State.PLAYING`. Pause (P/Esc) funktioniert auch während
+  TRANSITION (`_toggle_pause()`/`_unhandled_input()` prüfen beide Zustände) —
+  der Countdown pausiert dabei mit (`_paused`-Gate in `_process()`).
+  Zwei Verwendungen, beide über denselben Mechanismus:
+  - **„CLEARED!"** (`_check_wave_clear()`/`_finish_wave_clear()`): sobald
+    `_chains` leer ist, `_snd_play("wave-cleared")` (Fanfare) +
+    `_player.input_enabled = false` fürs Einfrieren, danach erhöht sich
+    `_wave` und `_spawn_wave()` läuft.
+  - **„GET READY!"** (`_finish_start()` bei `_start_game()`, `_finish_respawn()`
+    bei `_kill_player()`): sowohl beim Start einer neuen Runde als auch nach
+    jedem Lebensverlust (sofern noch Leben übrig — beim letzten Leben läuft
+    stattdessen direkt `_game_over()`, kein Banner) wird der Spieler SOFORT
+    auf `_spawn_point()` gesetzt (`_player.reset()`), aber mit
+    `input_enabled = false` bewegungs-/schussunfähig, bis das Banner fertig
+    ist — der Spieler sieht das Schiff also die ganze Bannerdauer über
+    unten mittig stehen, statt erst zu verschwinden und dann wieder
+    aufzutauchen.
 - **Punkte-Popups** (`score_popup.gd`/`.tscn`, `class_name ScorePopup`):
   kleines „+N"-Textlabel (`_draw()`-basiert wie die übrigen Spielobjekte),
   blendet über 0.5s ein/aus und driftet dabei leicht nach oben, friert sich
-  danach selbst (`queue_free()`). Bewusst **nur** für die „großen" Kills
-  ausgelöst (`game.gd::_spawn_score_popup()`), auf Nutzerwunsch beschränkt auf
-  Centipede-**Kopf**-Treffer, Spider und Scorpion — NICHT für Rumpfsegmente,
-  Pilztreffer oder Flea, die zu häufig vorkommen, um bei jedem Treffer
-  aufzublitzen ohne zur visuellen Unruhe zu werden. Sounds für Hits dieser
-  Items existierten bereits vorher (`segment-kill`/`spider-kill`/
-  `scorpion-kill` in `sound_manager.gd`, aufgerufen aus denselben
-  `_bullet_vs_*()`-Stellen in `game.gd`) — keine Änderung nötig.
+  danach selbst (`queue_free()`). Bewusst nur für die Kills ausgelöst
+  (`game.gd::_spawn_score_popup()`), die tatsächlich einen eigenen Punktwert
+  haben und selten genug vorkommen, um nicht zur visuellen Unruhe zu werden:
+  Centipede-**Kopf**-Treffer, Spider, Scorpion, **Flea** — NICHT für
+  Rumpfsegmente oder Pilztreffer (1 Punkt, treten viel zu häufig auf). Sounds
+  für Hits dieser Items existierten bereits vorher (`segment-kill`/
+  `spider-kill`/`scorpion-kill`/`flea-kill` in `sound_manager.gd`, aufgerufen
+  aus denselben `_bullet_vs_*()`-Stellen in `game.gd`) — keine Änderung nötig.
 
 ## Ports
 
