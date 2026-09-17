@@ -87,16 +87,43 @@ KETTE unabhängig — landen mehrere Ketten dort (z. B. weil mehrere
 Skorpion-Gift-Tauchgänge stattgefunden haben), zickzacken sie alle
 unabhängig nebeneinander in derselben Reihe, ohne sich gegenseitig zu
 beeinflussen (keine Ketten-vs-Ketten-Kollision, nur Kette-vs-Spieler/Kugel).
-Das ist **kein Soft-Lock**: die Segmentanzahl der Welle ist fix
-(`INITIAL_SEGMENTS` = 12, Splits verteilen nur um, erzeugen nichts Neues) —
-jeder Treffer reduziert die Gesamtzahl unwiderruflich, die Welle wird also
-rechnerisch IMMER clearbar, sobald genug Treffer landen, egal wie lange die
-Reste unten herumzickzacken. Es ist schlicht die gefährlichste, aber auch am
-leichtesten treffbare Phase einer Welle (die Segmente sind exakt in der
-Spielerzone, die immer bis zur untersten Reihe reicht, s. o.) — seit der
-Respawn-Unverwundbarkeit (siehe unten) sollte das Draufhalten dort weniger
-tödlich sein als zuvor. Kein Grund zum vorzeitigen Abbruch/Neustart einer
-Welle.
+Das ist **kein Soft-Lock im rechnerischen Sinn**: die Segmentanzahl der Welle
+ist fix (`INITIAL_SEGMENTS` = 12, Splits verteilen nur um, erzeugen nichts
+Neues) — jeder Treffer reduziert die Gesamtzahl unwiderruflich, die Welle
+wird also rechnerisch IMMER clearbar, sobald genug Treffer landen.
+
+**In der Praxis war das trotzdem ein echtes Problem** (Nutzer-Nachtrag
+2026-09-17, „fühlt sich wie eine Endlosschleife an, absichtliches Sterben
+hilft auch nicht" — zu Recht, denn Sterben ändert nichts an Position/Zustand
+der Kette): Kugeln fliegen nur nach oben. Ein Kopf, der schon in der
+untersten Reihe zickzackt, sitzt exakt auf der tiefstmöglichen Position im
+gesamten Feld — es gibt dort **keinen sicheren Schussabstand** wie bei einer
+noch von oben heranziehenden Kette. Damit der Bullet-Spawnpunkt (knapp über
+dem Spieler) überhaupt nah genug an den Kopf herankommt, muss der Spieler
+selbst fast auf gleicher Höhe stehen; dieser Abstand liegt fast exakt im
+Todesradius (Berührung tötet ab `FieldGrid.CELL * 0.4` = 12px, ein
+Bullet-Treffer zählt ab `FieldGrid.CELL * 0.45` = 13,5px) — reiner
+Nahkampf auf Messers Schneide, kein Sniping möglich. Das deckt sich mit dem
+Original (Strategie-Guides warnen explizit: „if the centipede reaches the
+bottom, not only are you at risk of dying"), kann sich aber besonders bei
+mehreren gleichzeitig herumgeisternden nackten Köpfen wie eine echte
+Sackgasse anfühlen.
+
+**Fix: `CentipedeChain.LONE_HEAD_TIMEOUT`** (15.0s, `centipede_chain.gd`) —
+sobald eine Kette auf einen einzelnen Kopf reduziert ist UND dieser Kopf in
+der untersten Reihe sitzt, läuft ein Timer (`_lone_head_stuck_t`, pro
+`step()`-Aufruf hochgezählt, sofort zurückgesetzt sobald die Bedingung nicht
+mehr zutrifft — passiert in der Praxis nie von selbst, s. o., aber
+Verteidigung schadet nicht). Überschreitet der Timer `LONE_HEAD_TIMEOUT`,
+meldet `is_stuck()` das an `game.gd`, das den Kopf dann per
+`_auto_clear_stuck_head()` über GENAU denselben `hit()`-Reward-Pfad wie ein
+echter Bullet-Treffer entfernt (Punkte, Ersatz-Pilz, `segment-kill`-Sound,
+Punkte-Popup) — für den Spieler kaum vom normalen Treffer zu unterscheiden,
+garantiert aber, dass jede Welle in endlicher Zeit fertig wird, ohne den
+Nahkampf-Nervenkitzel zu verändern, solange noch ein Rumpf dranhängt. Geprüft
+per `_selftest.gd` (Timeout-Grenzfall + „Kette mit Rumpf zählt nie als
+stuck") und live im Editor (kompletter Kreislauf: Auto-Clear → Punkte →
+Wave-Clear-Trigger → nächste Welle).
 
 ## Bekannte offene Punkte
 

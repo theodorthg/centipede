@@ -285,6 +285,8 @@ func _process(delta: float) -> void:
 
 	for chain in _chains.duplicate():
 		chain.step(delta)
+		if chain.is_stuck():
+			_auto_clear_stuck_head(chain)
 
 	if not is_instance_valid(_spider):
 		_spider_t -= delta
@@ -410,6 +412,22 @@ func _bullet_vs_centipede(b: Node2D) -> bool:
 				_chains.erase(chain)
 			return true
 	return false
+
+## See centipede_chain.gd's LONE_HEAD_TIMEOUT/is_stuck() doc comment: a bare
+## head that's been cornered in the player's own bottom row for too long
+## (no safe firing distance there — hitting it means standing right next to
+## it) gets force-killed via the exact same hit()/reward path a real bullet
+## hit would use, so every wave is guaranteed to finish in bounded time.
+func _auto_clear_stuck_head(chain: CentipedeChain) -> void:
+	var result: Dictionary = chain.hit(0)
+	_add_mushroom_from_hit(result.cell)
+	_add_score(100)
+	_snd_play("segment-kill")
+	_spawn_score_popup(FieldGrid.cell_to_pixel(result.cell.x, result.cell.y), 100)
+	if result.new_chain != null:
+		_chains.append(result.new_chain)
+	if result.empty:
+		_chains.erase(chain)
 
 func _bullet_vs_spider(b: Node2D) -> bool:
 	if not is_instance_valid(_spider) or b.position.distance_to(_spider.position) >= 16.0:

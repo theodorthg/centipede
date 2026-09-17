@@ -88,6 +88,23 @@ func _init() -> void:
 	dchain.step(0.011)
 	fails += _expect(dsegs[0].row == 2, "the dive continues straight down on the next tick")
 
+	# --- lone-head-stuck-at-bottom auto-timeout -----------------------------
+	var lsegs: Array[CentipedeSegment] = [CentipedeSegment.new()]
+	var lchain := CentipedeChain.new()
+	lchain.blocked = func(_c, _r): return false
+	lchain.setup(lsegs, 5, FieldGrid.field_bottom_row(), -1, 0.01)
+	lchain.step(1.0)
+	fails += _expect(not lchain.is_stuck(), "a lone head at the bottom isn't stuck yet before the timeout")
+	lchain.step(CentipedeChain.LONE_HEAD_TIMEOUT)
+	fails += _expect(lchain.is_stuck(), "a lone head at the bottom for too long reports stuck")
+
+	var fsegs: Array[CentipedeSegment] = [CentipedeSegment.new(), CentipedeSegment.new()]
+	var fchain := CentipedeChain.new()
+	fchain.blocked = func(_c, _r): return false
+	fchain.setup(fsegs, 5, FieldGrid.field_bottom_row(), -1, 0.01)
+	fchain.step(CentipedeChain.LONE_HEAD_TIMEOUT + 1.0)
+	fails += _expect(not fchain.is_stuck(), "a chain with a body left never counts as a stuck lone head")
+
 	if fails == 0:
 		print("_selftest: all checks passed")
 	else:

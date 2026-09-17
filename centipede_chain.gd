@@ -24,6 +24,19 @@ extends RefCounted
 ## in the same direction once the dive ends — matches the original arcade's
 ## "poison makes it plow straight through" behavior.
 
+## Once a chain has been whittled down to a bare head with no body left,
+## AND that head has reached the field's very bottom row (see _advance()'s
+## doc comment — row only ever increases, so once there it's stuck there for
+## good), it's cornered in the same narrow band the player operates in with
+## no safe firing distance (bullets only travel up, so hitting something at
+## your own row means being right next to it — see the project CLAUDE.md's
+## "Bottom-Row-Fix" discussion). LONE_HEAD_TIMEOUT bounds how long that one
+## last head is allowed to camp there before it's auto-cleared (game.gd's
+## _auto_clear_stuck_head(), which reuses the normal hit() reward path) —
+## guarantees every wave finishes in bounded time without touching the
+## close-range tension for as long as a body is still attached.
+const LONE_HEAD_TIMEOUT := 15.0
+
 var segments: Array[CentipedeSegment] = []
 var dir := -1
 var tick_interval := 0.13
@@ -34,6 +47,7 @@ var reached_player: Callable = func(_c: int, _r: int) -> bool: return false
 var _path: Array[Vector2i] = []
 var _tick_t := 0.0
 var _diving := false
+var _lone_head_stuck_t := 0.0
 
 ## Spawns a fresh chain lined up in a single row (start_col is the head's
 ## cell; the rest of the train trails behind it against `dir`, i.e. off to
@@ -53,10 +67,20 @@ func setup(new_segments: Array[CentipedeSegment], start_col: int, start_row: int
 func step(delta: float) -> void:
 	if segments.is_empty():
 		return
+	if segments.size() == 1 and _path[0].y >= FieldGrid.field_bottom_row():
+		_lone_head_stuck_t += delta
+	else:
+		_lone_head_stuck_t = 0.0
 	_tick_t += delta
 	while _tick_t >= tick_interval and not segments.is_empty():
 		_tick_t -= tick_interval
 		_advance()
+
+## See LONE_HEAD_TIMEOUT above — game.gd checks this once per frame after
+## step() and, if true, force-hits this chain's sole remaining head via the
+## normal hit() path (same score/mushroom/sound as a real kill).
+func is_stuck() -> bool:
+	return segments.size() == 1 and _lone_head_stuck_t >= LONE_HEAD_TIMEOUT
 
 func _advance() -> void:
 	var head := _path[0]
