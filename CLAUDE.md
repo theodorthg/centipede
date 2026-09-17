@@ -76,6 +76,28 @@ BEIDE entstehenden Teilketten aus den AKTUELLEN Zellen ihrer Segmente neu
 gesät (`_reseed_path()`) — dadurch gibt es keinen sichtbaren Sprung beim
 Split, und beide Teilzüge bewegen sich ab sofort unabhängig weiter.
 
+**Was passiert, wenn eine Kette die unterste Reihe erreicht?** (Nutzerfrage
+2026-09-17, per Headless-Test in `_advance()` verifiziert, siehe unten) —
+`_advance()`s `else`-Zweig setzt bei einer Blockade `new_row := mini(head.y
++ 1, FieldGrid.field_bottom_row())`: die Kette rutscht **niemals** über die
+unterste Reihe hinaus, sie zickzackt dort stattdessen unbegrenzt weiter (dreht
+bei jeder Blockade — Feldrand oder Pilz — auf der Stelle um, OHNE dabei seitlich
+zu ziehen; genau ein Tick "Wendezeit" pro Richtungswechsel). Das gilt PRO
+KETTE unabhängig — landen mehrere Ketten dort (z. B. weil mehrere
+Skorpion-Gift-Tauchgänge stattgefunden haben), zickzacken sie alle
+unabhängig nebeneinander in derselben Reihe, ohne sich gegenseitig zu
+beeinflussen (keine Ketten-vs-Ketten-Kollision, nur Kette-vs-Spieler/Kugel).
+Das ist **kein Soft-Lock**: die Segmentanzahl der Welle ist fix
+(`INITIAL_SEGMENTS` = 12, Splits verteilen nur um, erzeugen nichts Neues) —
+jeder Treffer reduziert die Gesamtzahl unwiderruflich, die Welle wird also
+rechnerisch IMMER clearbar, sobald genug Treffer landen, egal wie lange die
+Reste unten herumzickzacken. Es ist schlicht die gefährlichste, aber auch am
+leichtesten treffbare Phase einer Welle (die Segmente sind exakt in der
+Spielerzone, die immer bis zur untersten Reihe reicht, s. o.) — seit der
+Respawn-Unverwundbarkeit (siehe unten) sollte das Draufhalten dort weniger
+tödlich sein als zuvor. Kein Grund zum vorzeitigen Abbruch/Neustart einer
+Welle.
+
 ## Bekannte offene Punkte
 
 - **Sound-Dateien sind vorerst nur Platzhalter** — `assets/sounds/*.wav`
@@ -135,6 +157,17 @@ Setzt die globale CLAUDE.md-Punkte 18 (Menü-Navigations-Konventionen) und 19
   Settings/Hilfe). `LineEdit` fängt `ui_accept` explizit ab (Gamepad-A würde
   sonst nichts auslösen, da `text_submitted` nur bei echtem Enter feuert).
   Ersetzt den früheren einzelnen `user://settings.cfg`-„hi"-Wert komplett.
+  **Rang-Kriterium bleibt reiner Score, nicht Score+Welle** (Nutzerfrage
+  2026-09-17: fühlte sich falsch an, dass ein Score aus einem langen Kampf
+  in einer frühen Welle einen Eintrag aus einer weiter fortgeschrittenen
+  Welle in der Liste überholt) — das ist die klassische Arcade-Konvention
+  (auch das Original von 1981 rankt rein nach Score, nicht nach erreichter
+  Welle) und wird bewusst NICHT geändert. Um das Ergebnis aber nachvollziehbar
+  statt mysteriös wirken zu lassen, zeigt `_render_hof()` (in `menus.gd`,
+  Game-Over- UND High-Scores-Screen) jetzt eine vierte Spalte „W<n>" mit der
+  in `HallOfFame.insert()` ohnehin schon gespeicherten, bisher aber nirgends
+  angezeigten Welle — der Vergleich "mehr Punkte bei Welle 2 vs. weniger
+  Punkte bei Welle 5" ist damit auf einen Blick sichtbar statt versteckt.
 
 ## Hilfe-Illustrationen (Stand 2026-09-17, ersetzt eine erste zu grobe Fassung)
 

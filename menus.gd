@@ -346,7 +346,7 @@ func _build_gameover() -> void:
 		_vbox.add_child(_spacer(4))
 
 	var hof_box := GridContainer.new()
-	hof_box.columns = 3
+	hof_box.columns = 4
 	hof_box.add_theme_constant_override("h_separation", 10)
 	hof_box.add_theme_constant_override("v_separation", 2)
 	_vbox.add_child(hof_box)
@@ -406,12 +406,22 @@ func _render_hof(grid: GridContainer, list: Array, highlight: int) -> void:
 		name_l.text = str(e.name).to_upper()
 		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name_l.add_theme_color_override("font_color", col)
+		# Shown alongside score (not used for ranking — score alone still
+		# decides order, the classic-arcade convention) so a high score from
+		# a long fight on an early wave doesn't read as mysteriously
+		# outranking a run that reached a later wave — see the project
+		# CLAUDE.md's "Hall of Fame" section for the full reasoning.
+		var wave_l := Label.new()
+		wave_l.text = "W%d" % int(e.get("wave", 1))
+		wave_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		wave_l.add_theme_color_override("font_color", Color(col.r, col.g, col.b, 0.75))
 		var score_l := Label.new()
 		score_l.text = "%06d" % int(e.score)
 		score_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		score_l.add_theme_color_override("font_color", col)
 		grid.add_child(rank_l)
 		grid.add_child(name_l)
+		grid.add_child(wave_l)
 		grid.add_child(score_l)
 
 # ---------------------------------------------------------- high scores --
@@ -419,7 +429,7 @@ func _build_highscores() -> void:
 	_vbox.add_child(_heading("HIGH SCORES"))
 	_vbox.add_child(_spacer(4))
 	var hof_box := GridContainer.new()
-	hof_box.columns = 3
+	hof_box.columns = 4
 	hof_box.add_theme_constant_override("h_separation", 10)
 	hof_box.add_theme_constant_override("v_separation", 2)
 	_vbox.add_child(hof_box)
