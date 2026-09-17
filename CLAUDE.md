@@ -169,6 +169,30 @@ gerastert, in `menus.gd::_build_help()` per `TextureRect`
   eingecheckt (nicht gitignored, wie bei tetris/galaga), damit der
   Web-Export sie ohne Inkscape-Abhängigkeit zur Laufzeit ausliefert.
 
+## Wave-Clear-Feedback & Punkte-Popups (Stand 2026-09-17)
+
+- **Wave-Übergang** (`game.gd`, `State.WAVECLEAR`): sobald `_chains` leer
+  ist, hält `_check_wave_clear()` die normale PLAYING-Logik (Chain-Ticks,
+  Gegner-Spawns, Kollisionen) für `WAVE_CLEAR_DELAY` (2.0s) an, statt sofort
+  die nächste Welle zu starten — `_hud.show_wave_cleared_banner()` blendet
+  währenddessen ein zentriertes „CLEARED!"-Label (`UiStyle.impact_label`-Look)
+  ein/hält/aus (Tween, 0.3s/Rest/0.3s bei 2.0s Gesamtdauer), zusätzlich spielt
+  `_snd_play("wave-cleared")` die Fanfare. Erst danach (`_finish_wave_clear()`)
+  erhöht sich `_wave` und `_spawn_wave()` läuft. Pause (P/Esc) funktioniert
+  auch während WAVECLEAR (`_toggle_pause()`/`_unhandled_input()` prüfen beide
+  Zustände) — der Countdown pausiert dabei mit (`_paused`-Gate in `_process()`).
+- **Punkte-Popups** (`score_popup.gd`/`.tscn`, `class_name ScorePopup`):
+  kleines „+N"-Textlabel (`_draw()`-basiert wie die übrigen Spielobjekte),
+  blendet über 0.5s ein/aus und driftet dabei leicht nach oben, friert sich
+  danach selbst (`queue_free()`). Bewusst **nur** für die „großen" Kills
+  ausgelöst (`game.gd::_spawn_score_popup()`), auf Nutzerwunsch beschränkt auf
+  Centipede-**Kopf**-Treffer, Spider und Scorpion — NICHT für Rumpfsegmente,
+  Pilztreffer oder Flea, die zu häufig vorkommen, um bei jedem Treffer
+  aufzublitzen ohne zur visuellen Unruhe zu werden. Sounds für Hits dieser
+  Items existierten bereits vorher (`segment-kill`/`spider-kill`/
+  `scorpion-kill` in `sound_manager.gd`, aufgerufen aus denselben
+  `_bullet_vs_*()`-Stellen in `game.gd`) — keine Änderung nötig.
+
 ## Ports
 
 Web-Testserver: **8097** (`.claude/launch.json`, `centipede-web`) — nächster

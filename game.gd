@@ -27,8 +27,11 @@ const FLEA_SCORE := 200
 const SCORPION_INTERVAL_MIN := 16.0
 const SCORPION_INTERVAL_MAX := 28.0
 const SCORPION_SCORE := 1000
+## How long the "CLEARED!" banner (+ fanfare) holds the game between waves —
+## see hud.gd's show_wave_cleared_banner(), which fades in/out within it.
+const WAVE_CLEAR_DELAY := 2.0
 
-enum State { TITLE, PLAYING, GAMEOVER }
+enum State { TITLE, PLAYING, WAVECLEAR, GAMEOVER }
 
 const MushroomScene := preload("res://mushroom.tscn")
 const BulletScene := preload("res://bullet.tscn")
@@ -36,6 +39,7 @@ const SegmentScene := preload("res://centipede_segment.tscn")
 const SpiderScene := preload("res://spider.tscn")
 const FleaScene := preload("res://flea.tscn")
 const ScorpionScene := preload("res://scorpion.tscn")
+const ScorePopupScene := preload("res://score_popup.tscn")
 
 @onready var _hud_layer: CanvasLayer = $HUD
 @onready var _hud: Hud = $HUD/Root
@@ -59,6 +63,7 @@ var _flea: Flea = null
 var _flea_check_t := 0.0
 var _scorpion: Scorpion = null
 var _scorpion_t := 0.0
+var _wave_clear_t := 0.0
 
 var _last_window_size := Vector2i.ZERO
 var _cabinet_cam: Camera2D
@@ -112,7 +117,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not _touch:
 			_touch = true
 			get_tree().call_group("touch_layout_listeners", "apply_touch_layout")
-	if event.is_action_pressed("pause") and _state == State.PLAYING:
+	if event.is_action_pressed("pause") and (_state == State.PLAYING or _state == State.WAVECLEAR):
 		_toggle_pause()
 	elif event.is_action_pressed("mute"):
 		_toggle_mute()
@@ -210,6 +215,7 @@ func _is_blocked_at(pos: Vector2) -> bool:
 	return _mushrooms.has(Vector2i(cell.x, cell.y))
 
 func _clear_field() -> void:
+	_hud.hide_wave_cleared_banner()
 	_clear_mushrooms()
 	for c in _chains:
 		c.free_all()
@@ -245,6 +251,13 @@ func _process(delta: float) -> void:
 	if win_now != _last_window_size:
 		_last_window_size = win_now
 		_apply_display_mode()
+
+	if _state == State.WAVECLEAR:
+		if not _paused:
+			_wave_clear_t -= delta
+			if _wave_clear_t <= 0.0:
+				_finish_wave_clear()
+		return
 
 	if _state != State.PLAYING or _paused:
 		return
@@ -365,8 +378,11 @@ func _bullet_vs_centipede(b: Node2D) -> bool:
 			var result: Dictionary = chain.hit(i)
 			b.queue_free()
 			_add_mushroom_from_hit(result.cell)
-			_add_score(100 if was_head else 10)
+			var pts := 100 if was_head else 10
+			_add_score(pts)
 			_snd_play("segment-kill")
+			if was_head:
+				_spawn_score_popup(FieldGrid.cell_to_pixel(result.cell.x, result.cell.y), pts)
 			if result.new_chain != null:
 				_chains.append(result.new_chain)
 			if result.empty:
@@ -379,6 +395,7 @@ func _bullet_vs_spider(b: Node2D) -> bool:
 		return false
 	var pts := Spider.score_for_distance(_spider.position.distance_to(_player.position))
 	_add_score(pts)
+	_spawn_score_popup(_spider.position, pts)
 	b.queue_free()
 	_spider.queue_free()
 	_spider = null
@@ -399,6 +416,7 @@ func _bullet_vs_scorpion(b: Node2D) -> bool:
 	if not is_instance_valid(_scorpion) or b.position.distance_to(_scorpion.position) >= Scorpion.RADIUS * 1.6:
 		return false
 	_add_score(SCORPION_SCORE)
+	_spawn_score_popup(_scorpion.position, SCORPION_SCORE)
 	b.queue_free()
 	_scorpion.queue_free()
 	_scorpion = null
@@ -408,6 +426,15 @@ func _bullet_vs_scorpion(b: Node2D) -> bool:
 func _add_mushroom_from_hit(cell: Vector2i) -> void:
 	if not _mushrooms.has(cell) and FieldGrid.in_bounds(cell.x, cell.y):
 		_add_mushroom(cell.x, cell.y)
+
+## Small floating "+N" — only for the kills worth calling out at a glance
+## (centipede heads, spider, scorpion), not mushroom hits or body segments,
+## which happen far too often to flash every single time.
+func _spawn_score_popup(pos: Vector2, score: int) -> void:
+	var p: ScorePopup = ScorePopupScene.instantiate()
+	add_child(p)
+	p.position = pos
+	p.setup(score)
 
 func _check_player_collisions() -> void:
 	if not _player.alive:
@@ -443,12 +470,22 @@ func _kill_player() -> void:
 	_player.reset(_spawn_point())
 	_player.input_enabled = true
 
+## Wave just cleared: hold PLAYING's per-frame logic (chain stepping, enemy
+## spawns, collisions) for WAVE_CLEAR_DELAY seconds while the "CLEARED!"
+## banner + fanfare play, THEN advance the wave counter and spawn the next
+## one — see _finish_wave_clear() and the State.WAVECLEAR branch in _process().
 func _check_wave_clear() -> void:
 	if _chains.is_empty():
-		_wave += 1
-		_hud.set_wave(_wave)
+		_state = State.WAVECLEAR
+		_wave_clear_t = WAVE_CLEAR_DELAY
 		_snd_play("wave-cleared")
-		_spawn_wave()
+		_hud.show_wave_cleared_banner(WAVE_CLEAR_DELAY)
+
+func _finish_wave_clear() -> void:
+	_wave += 1
+	_hud.set_wave(_wave)
+	_spawn_wave()
+	_state = State.PLAYING
 
 func _add_score(n: int) -> void:
 	_score += n
@@ -466,7 +503,7 @@ func _game_over() -> void:
 
 # ------------------------------------------------------------------ pause --
 func _toggle_pause() -> void:
-	if _state != State.PLAYING:
+	if _state != State.PLAYING and _state != State.WAVECLEAR:
 		return
 	_paused = not _paused
 	get_tree().paused = _paused

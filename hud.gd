@@ -26,6 +26,9 @@ var _mute_btn: Button
 var _mute_icon: Control
 var _lives := 0
 
+var _cleared_label: Label
+var _cleared_tween: Tween
+
 signal pause_pressed
 signal mute_pressed
 
@@ -83,6 +86,19 @@ func _ready() -> void:
 
 	UiStyle.impact_label(_wave)
 
+	_cleared_label = Label.new()
+	_cleared_label.text = "CLEARED!"
+	_cleared_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_cleared_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cleared_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_cleared_label.position = Vector2(DESIGN_WIDTH * 0.5 - 160, DESIGN_HEIGHT * 0.5 - 40)
+	_cleared_label.size = Vector2(320, 80)
+	_cleared_label.add_theme_font_size_override("font_size", 44)
+	_cleared_label.modulate.a = 0.0
+	_cleared_label.visible = false
+	add_child(_cleared_label)
+	UiStyle.impact_label(_cleared_label)
+
 func set_score(n: int) -> void:
 	_score.text = "%06d" % n
 
@@ -95,6 +111,28 @@ func set_lives(n: int) -> void:
 
 func set_muted(m: bool) -> void:
 	_mute_icon.set_muted(m)
+
+## Fades "CLEARED!" in, holds, fades it out again — total time == `duration`
+## (game.gd holds gameplay for exactly that long via State.WAVECLEAR, so the
+## banner's own timing must line up with it, not run independently).
+func show_wave_cleared_banner(duration: float) -> void:
+	if is_instance_valid(_cleared_tween):
+		_cleared_tween.kill()
+	_cleared_label.visible = true
+	_cleared_label.modulate.a = 0.0
+	var fade := minf(0.3, duration * 0.5)
+	var hold := maxf(duration - fade * 2.0, 0.0)
+	_cleared_tween = create_tween()
+	_cleared_tween.tween_property(_cleared_label, "modulate:a", 1.0, fade)
+	_cleared_tween.tween_interval(hold)
+	_cleared_tween.tween_property(_cleared_label, "modulate:a", 0.0, fade)
+	_cleared_tween.tween_callback(func(): _cleared_label.visible = false)
+
+func hide_wave_cleared_banner() -> void:
+	if is_instance_valid(_cleared_tween):
+		_cleared_tween.kill()
+	_cleared_label.visible = false
+	_cleared_label.modulate.a = 0.0
 
 func set_cabinet_lane(active: bool, offset_x: float) -> void:
 	if active:

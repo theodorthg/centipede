@@ -21,6 +21,7 @@ const SCRIPTS := [
 	"res://spider.gd",
 	"res://flea.gd",
 	"res://scorpion.gd",
+	"res://score_popup.gd",
 	"res://hud.gd",
 	"res://mute_icon.gd",
 	"res://menus.gd",
