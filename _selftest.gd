@@ -8,6 +8,7 @@ extends SceneTree
 ## the whole game relies on.
 
 const SCRIPTS := [
+	"res://splash.gd",
 	"res://field_grid.gd",
 	"res://ui_style.gd",
 	"res://game_settings.gd",

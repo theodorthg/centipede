@@ -117,7 +117,10 @@ func _ready() -> void:
 	add_to_group("touch_layout_listeners")
 	apply_touch_layout()
 
-	_to_title()
+	# splash with a fake loading bar first (global CLAUDE.md #11), then title
+	var splash := Splash.new()
+	add_child(splash)
+	splash.done.connect(_to_title, CONNECT_ONE_SHOT)
 
 ## Retroactive input-source flip (see player.gd/global CLAUDE.md #4): some
 ## browsers don't report touch synchronously at load, only once a real touch

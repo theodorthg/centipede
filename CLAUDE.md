@@ -342,3 +342,12 @@ gerastert, in `menus.gd::_build_help()` per `TextureRect`
 
 Web-Testserver: **8097** (`.claude/launch.json`, `centipede-web`) — nächster
 freier Port unterhalb pacman=8098 (siehe globale CLAUDE.md, Port-Tabelle).
+
+## Splash mit Fake-Ladebalken (Stand 2026-09-26)
+
+`splash.gd` (aus mario-clone portiert, globale Vorgabe 11): nach dem kurzen
+nativen Boot-Splash (0,5 s) läuft `splash-screen.png` mit grünem
+Fake-Ladebalken 3 s weiter, dann Titelbildschirm (`game.gd::_ready()` →
+`splash.done` → `_to_title`). Taste/Pad/Klick/Tipp überspringt. Das Bild
+ist weiterhin der Platzhalter (siehe „Bekannte offene Punkte“). Offene
+Punkte sammelt ab jetzt `TODO.md`.
