@@ -11,6 +11,9 @@ offene Punkte stehen noch in `CLAUDE.md` → „Bekannte offene Punkte“.
 
 ## Erledigt
 
+- [x] 2026-09-27 RG552: alte debug-signierte Version auf Nutzerwunsch
+      deinstalliert, neuer release-Build installiert (+ APK im Download-
+      Ordner aktualisiert).
 - [x] 2026-09-27 Cover-Art (Nutzer): Hochformat-Bild für Splash +
       Startbildschirm hochkant, Querformat-Bild (18.09., Text auf „PRESS
       START“ umgestellt) quer; „PRESS START“-Wartebildschirm vor dem
