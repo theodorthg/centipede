@@ -11,6 +11,11 @@ offene Punkte stehen noch in `CLAUDE.md` → „Bekannte offene Punkte“.
 
 ## Erledigt
 
+- [x] 2026-09-27 Android-System-Startbildschirm (vor dem Splash) einheitlich
+      reines Weiß: `splash_screen/icon` = transparentes
+      `assets/icon/android_splash_blank.png`, `branding_image` leer (Nutzer-
+      wunsch, ohne Gradle-Build; Hintergrundfarbe ließe sich nur per Gradle
+      ändern).
 - [x] 2026-09-27 RG552: alte debug-signierte Version auf Nutzerwunsch
       deinstalliert, neuer release-Build installiert (+ APK im Download-
       Ordner aktualisiert).
