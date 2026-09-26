@@ -10,11 +10,10 @@ offene Punkte stehen noch in `CLAUDE.md` → „Bekannte offene Punkte“.
       `build.sh` baut **release**-signiert → `adb install -r` scheitert mit
       `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Nutzer fragen: deinstallieren
       (löscht Einstellungen/Highscores auf dem Gerät) oder weiter debug?
-- [ ] Finale Splash-Grafik (`splash-screen.png` ist noch Platzhalter).
-      Im Projekt liegt untracked `centipede-cover-and-splash.jpeg` (Nutzer,
-      18.09., 1024×734 **quer**, Text „DRÜCKEN SIE START“ auf Deutsch) —
-      Nutzer fragen, ob/wie verwenden (Hochformat-Zuschnitt? englischer
-      Text?).
+- [ ] Neues Icon + neuer Splash: **Nutzer schickt bessere Grafiken**
+      (2026-09-26: aktuelles Icon „nicht toll“, Splash nur generischer
+      Platzhalter). Das ältere `centipede-cover-and-splash.jpeg` (quer,
+      deutscher Text) nicht verwenden.
 - [ ] Übrige Punkte aus `CLAUDE.md` „Bekannte offene Punkte“ hierher
       übernehmen.
 
