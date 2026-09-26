@@ -9,6 +9,7 @@ extends SceneTree
 
 const SCRIPTS := [
 	"res://splash.gd",
+	"res://cover_art.gd",
 	"res://field_grid.gd",
 	"res://ui_style.gd",
 	"res://game_settings.gd",

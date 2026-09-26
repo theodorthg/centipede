@@ -82,6 +82,10 @@ var _transition_done: Callable
 var _last_window_size := Vector2i.ZERO
 var _cabinet_cam: Camera2D
 
+var _title_art: CanvasLayer
+var _await_start := false
+var _await_t := 0
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_to_group("touch_layout_listeners")
@@ -117,10 +121,17 @@ func _ready() -> void:
 	add_to_group("touch_layout_listeners")
 	apply_touch_layout()
 
-	# splash with a fake loading bar first (global CLAUDE.md #11), then title
+	# cover art behind the title/start menus (under the menu layer 3)
+	_title_art = CanvasLayer.new()
+	_title_art.layer = 2
+	_title_art.visible = false
+	add_child(_title_art)
+	_title_art.add_child(CoverArt.new())
+	# splash with a fake loading bar first (global CLAUDE.md #11), then the
+	# same art stays up with its "PRESS START" until a key/tap -> start menu
 	var splash := Splash.new()
 	add_child(splash)
-	splash.done.connect(_to_title, CONNECT_ONE_SHOT)
+	splash.done.connect(_to_title.bind(true), CONNECT_ONE_SHOT)
 
 ## Retroactive input-source flip (see player.gd/global CLAUDE.md #4): some
 ## browsers don't report touch synchronously at load, only once a real touch
@@ -130,6 +141,16 @@ func apply_touch_layout() -> void:
 	_menus.set_touch_context(_touch)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _await_start:
+		var any: bool = (event is InputEventKey and event.pressed and not event.echo) \
+			or (event is InputEventJoypadButton and event.pressed) \
+			or (event is InputEventMouseButton and event.pressed) \
+			or (event is InputEventScreenTouch and event.pressed)
+		if any and Time.get_ticks_msec() - _await_t > 250:
+			_await_start = false
+			get_viewport().set_input_as_handled()
+			_menus.show_start()
+		return
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		if not _touch:
 			_touch = true
@@ -144,8 +165,11 @@ func _apply_settings(cfg: Dictionary) -> void:
 	_cfg = cfg
 	_player.zone_top_row = FieldGrid.zone_top_row(_cfg.movement_zone)
 
-func _to_title() -> void:
+## press_start: after the splash, show only the cover art (its own "PRESS
+## START") and open the start menu on the first key / button / click / tap.
+func _to_title(press_start := false) -> void:
 	_state = State.TITLE
+	_title_art.visible = true
 	get_tree().paused = false
 	_paused = false
 	_clear_field()
@@ -158,9 +182,16 @@ func _to_title() -> void:
 	_player.input_enabled = false
 	_hud_layer.visible = false
 	_touch_controls.visible = false
-	_menus.show_start()
+	if press_start:
+		_await_start = true
+		_await_t = Time.get_ticks_msec()
+		_menus.hide_all()
+	else:
+		_menus.show_start()
 
 func _start_game() -> void:
+	_title_art.visible = false
+	_await_start = false
 	_cfg = GameSettings.load_all()
 	_score = 0
 	_lives = _cfg.lives

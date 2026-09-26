@@ -6,15 +6,16 @@ offene Punkte stehen noch in `CLAUDE.md` → „Bekannte offene Punkte“.
 
 ## Offen
 
-- [ ] Neues App-Icon: Nutzer schickt eine bessere Grafik. Achtung: das
-      Android-Preset verweist auf `tetris-icon 192x192.png` / `… 432x432*.png`
-      (Kopierfehler aus der Tetris-Vorlage, die Dateien existieren hier gar
-      nicht) — beim neuen Icon mit korrigieren.
 - [ ] Übrige Punkte aus `CLAUDE.md` „Bekannte offene Punkte“ hierher
       übernehmen.
 
 ## Erledigt
 
+- [x] 2026-09-27 Cover-Art (Nutzer): Hochformat-Bild für Splash +
+      Startbildschirm hochkant, Querformat-Bild (18.09., Text auf „PRESS
+      START“ umgestellt) quer; „PRESS START“-Wartebildschirm vor dem
+      Start-Menü; neues App-Icon aus dem Kopf des Tausendfüßlers,
+      Android-Icon-Verweise auf `tetris-icon …` korrigiert.
 - [x] 2026-09-26 Neuer Splash (Nutzer-Grafik „ULTIMATE CENTIPEDE CLONE“)
       mit weichgezeichnetem Hintergrund für Hochformat.
 - [x] 2026-09-26 Handy (CPH2581): alte debug-signierte Version auf

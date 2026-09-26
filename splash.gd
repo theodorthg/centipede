@@ -1,7 +1,8 @@
 class_name Splash
 extends CanvasLayer
 
-## Start-up splash (ported from mario-clone): splash-screen.png + a fake
+## Start-up splash (ported from mario-clone): the cover art (CoverArt:
+## portrait/landscape picture by screen shape) + a fake
 ## loading bar for TIME seconds,
 ## on top of everything. Godot's native boot_splash (same image) only covers
 ## the real engine load, which is far too short to notice, so this continues
@@ -25,41 +26,17 @@ func _ready() -> void:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_root)
-	var bg := ColorRect.new()
-	bg.color = Color.BLACK
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(bg)
-	# blurred copy fills the screen behind the picture: on the portrait phone
-	# layout the (landscape) splash art sits as a sharp band in the middle
-	# instead of between black bars; on landscape windows it's hidden anyway
-	var back := TextureRect.new()
-	back.texture = load("res://assets/graphics/splash_bg.png")
-	back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	back.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	back.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	back.set_anchors_preset(Control.PRESET_FULL_RECT)
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(back)
-	var pic := TextureRect.new()
-	pic.texture = load("res://splash-screen.png")
-	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	pic.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR     # hi-res art, not pixel art
-	pic.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(pic)
+	_root.add_child(CoverArt.new())
 	# loading bar at the bottom centre: dark frame, gold fill with a shine line
 	var frame := ColorRect.new()
 	frame.color = Color("0a0a0a")
 	frame.anchor_left = 0.2
 	frame.anchor_right = 0.8
-	# proportional position: just under the art's own "LOADING..." line in
-	# landscape, low in the blurred area in portrait
-	frame.anchor_top = 0.962
-	frame.anchor_bottom = 0.962
-	frame.offset_top = 0
-	frame.offset_bottom = 10
+	# in the free bottom zone CoverArt keeps below the picture
+	frame.anchor_top = 1.0 - CoverArt.BAR_ZONE * 0.5
+	frame.anchor_bottom = frame.anchor_top
+	frame.offset_top = -5
+	frame.offset_bottom = 5
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(frame)
 	var track := ColorRect.new()

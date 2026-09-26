@@ -343,19 +343,30 @@ gerastert, in `menus.gd::_build_help()` per `TextureRect`
 Web-Testserver: **8097** (`.claude/launch.json`, `centipede-web`) — nächster
 freier Port unterhalb pacman=8098 (siehe globale CLAUDE.md, Port-Tabelle).
 
-## Splash mit Fake-Ladebalken (Stand 2026-09-26)
+## Cover-Art: Splash, Startbildschirm, Icon (Stand 2026-09-27)
 
-`splash.gd` (aus mario-clone portiert, globale Vorgabe 11): nach dem kurzen
-nativen Boot-Splash (0,5 s) läuft `splash-screen.png` mit grünem
-Fake-Ladebalken 3 s weiter, dann Titelbildschirm (`game.gd::_ready()` →
-`splash.done` → `_to_title`). Taste/Pad/Klick/Tipp überspringt. Das Bild
-ist seit 2026-09-26 die Nutzer-Grafik „ULTIMATE CENTIPEDE CLONE“
-(Original `art_src/centipede-splash.jpg`, `.gdignore`; `splash-screen.png`
-= dasselbe als PNG, 1376×768 quer). Weil das Spiel auf dem Handy hochkant
-läuft, legt `splash.gd` eine weichgezeichnete, abgedunkelte Kopie
-(`assets/graphics/splash_bg.png`, 344×192:
-`magick art_src/centipede-splash.jpg -resize 25% -blur 0x6 -modulate 55,90 -strip assets/graphics/splash_bg.png`)
-bildschirmfüllend dahinter — hochkant sitzt das scharfe Bild als Band in
-der Mitte, quer (Kabinett-Modus) füllt es den Schirm. Ladebalken
-proportional bei 96,2 % der Höhe (quer direkt unter „LOADING...“ im Bild).
-Offene Punkte sammelt ab jetzt `TODO.md`.
+Nutzer-Grafiken (Originale in `art_src/`, `.gdignore`):
+- **Hochformat** `centipede-portrait.jpg` (768×1376) → `assets/graphics/cover_tall.png`.
+- **Querformat** `centipede-landscape-de.jpeg` (1024×734, vom 18.09.) mit
+  „DRÜCKEN SIE START“ → in `centipede-landscape-en.png` durch das „PRESS
+  START“ aus dem Hochformat-Bild ersetzt (gleicher LED-Schriftstil,
+  Verlaufsfüllung + `-compose lighten`) → `splash-screen.png` (auch
+  nativer Boot-Splash, Desktop/Web sind quer).
+- Weichgezeichnete Hintergründe `cover_tall_bg.png` / `cover_wide_bg.png`
+  (`magick <bild> -resize 25% -blur 0x6 -modulate 50,90 -strip …`).
+`cover_art.gd` (`CoverArt`) zeigt je nach Bildschirmform (breiter als hoch
+→ quer) das passende Bild über seiner weichgezeichneten Kopie und hält
+unten `BAR_ZONE` (8 %) frei. **Ablauf**: `splash.gd` (CoverArt + Fake-
+Ladebalken 3 s, überspringbar) → das Bild bleibt stehen (Titel-Ebene,
+CanvasLayer 2 unter den Menüs), sein eingebautes „PRESS START“ wartet auf
+Taste/Button/Klick/Tipp (`game.gd::_await_start`) → Start-Menü über dem
+Milchglas. Zurück aus dem Spiel („Menu“) → direkt Start-Menü über dem Bild.
+**Falle**: ein Control, das sich erst in `_ready()` (also schon im Baum)
+bildschirmfüllend machen soll, braucht `set_anchors_and_offsets_preset()`,
+nicht `set_anchors_preset()` — letzteres behielt die Größe 0×0.
+**Icon**: Kopf-Ausschnitt aus dem Hochformat-Bild → `icon.png` (256,
+`config/icon`) und `assets/icon/android_{main,bg,fg}.png` (Adaptive: Bild
+als Hintergrund, Vordergrund transparent; Monochrom leer). Vorher verwies
+das Android-Preset auf nicht existierende `tetris-icon …`-Dateien
+(Kopierfehler aus der Tetris-Vorlage).
+Offene Punkte sammelt `TODO.md`.
