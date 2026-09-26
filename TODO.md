@@ -6,18 +6,18 @@ offene Punkte stehen noch in `CLAUDE.md` → „Bekannte offene Punkte“.
 
 ## Offen
 
-- [ ] Handy (CPH2581): installierte Centipede-Version ist **debug**-signiert,
-      `build.sh` baut **release**-signiert → `adb install -r` scheitert mit
-      `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Nutzer fragen: deinstallieren
-      (löscht Einstellungen/Highscores auf dem Gerät) oder weiter debug?
-- [ ] Neues Icon + neuer Splash: **Nutzer schickt bessere Grafiken**
-      (2026-09-26: aktuelles Icon „nicht toll“, Splash nur generischer
-      Platzhalter). Das ältere `centipede-cover-and-splash.jpeg` (quer,
-      deutscher Text) nicht verwenden.
+- [ ] Neues App-Icon: Nutzer schickt eine bessere Grafik. Achtung: das
+      Android-Preset verweist auf `tetris-icon 192x192.png` / `… 432x432*.png`
+      (Kopierfehler aus der Tetris-Vorlage, die Dateien existieren hier gar
+      nicht) — beim neuen Icon mit korrigieren.
 - [ ] Übrige Punkte aus `CLAUDE.md` „Bekannte offene Punkte“ hierher
       übernehmen.
 
 ## Erledigt
 
+- [x] 2026-09-26 Neuer Splash (Nutzer-Grafik „ULTIMATE CENTIPEDE CLONE“)
+      mit weichgezeichnetem Hintergrund für Hochformat.
+- [x] 2026-09-26 Handy (CPH2581): alte debug-signierte Version auf
+      Nutzerwunsch deinstalliert, release-Build installiert.
 - [x] 2026-09-26 Splash mit Fake-Ladebalken (`splash.gd`), Boot-Splash-
       Mindestzeit 0,5 s.

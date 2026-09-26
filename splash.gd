@@ -30,6 +30,17 @@ func _ready() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(bg)
+	# blurred copy fills the screen behind the picture: on the portrait phone
+	# layout the (landscape) splash art sits as a sharp band in the middle
+	# instead of between black bars; on landscape windows it's hidden anyway
+	var back := TextureRect.new()
+	back.texture = load("res://assets/graphics/splash_bg.png")
+	back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	back.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	back.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	back.set_anchors_preset(Control.PRESET_FULL_RECT)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(back)
 	var pic := TextureRect.new()
 	pic.texture = load("res://splash-screen.png")
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -43,10 +54,12 @@ func _ready() -> void:
 	frame.color = Color("0a0a0a")
 	frame.anchor_left = 0.2
 	frame.anchor_right = 0.8
-	frame.anchor_top = 1.0
-	frame.anchor_bottom = 1.0
-	frame.offset_top = -72
-	frame.offset_bottom = -58
+	# proportional position: just under the art's own "LOADING..." line in
+	# landscape, low in the blurred area in portrait
+	frame.anchor_top = 0.962
+	frame.anchor_bottom = 0.962
+	frame.offset_top = 0
+	frame.offset_bottom = 10
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(frame)
 	var track := ColorRect.new()

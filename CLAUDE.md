@@ -349,5 +349,13 @@ freier Port unterhalb pacman=8098 (siehe globale CLAUDE.md, Port-Tabelle).
 nativen Boot-Splash (0,5 s) läuft `splash-screen.png` mit grünem
 Fake-Ladebalken 3 s weiter, dann Titelbildschirm (`game.gd::_ready()` →
 `splash.done` → `_to_title`). Taste/Pad/Klick/Tipp überspringt. Das Bild
-ist weiterhin der Platzhalter (siehe „Bekannte offene Punkte“). Offene
-Punkte sammelt ab jetzt `TODO.md`.
+ist seit 2026-09-26 die Nutzer-Grafik „ULTIMATE CENTIPEDE CLONE“
+(Original `art_src/centipede-splash.jpg`, `.gdignore`; `splash-screen.png`
+= dasselbe als PNG, 1376×768 quer). Weil das Spiel auf dem Handy hochkant
+läuft, legt `splash.gd` eine weichgezeichnete, abgedunkelte Kopie
+(`assets/graphics/splash_bg.png`, 344×192:
+`magick art_src/centipede-splash.jpg -resize 25% -blur 0x6 -modulate 55,90 -strip assets/graphics/splash_bg.png`)
+bildschirmfüllend dahinter — hochkant sitzt das scharfe Bild als Band in
+der Mitte, quer (Kabinett-Modus) füllt es den Schirm. Ladebalken
+proportional bei 96,2 % der Höhe (quer direkt unter „LOADING...“ im Bild).
+Offene Punkte sammelt ab jetzt `TODO.md`.
