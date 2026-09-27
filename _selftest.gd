@@ -3,39 +3,40 @@ extends SceneTree
 ## Headless smoke test. Run:
 ##   godot --headless --path . --script res://_selftest.gd
 ##
-## Parse-checks the class_name scripts (a parse error makes load() fail) and
+## Checks that every script compiles (see _all_scripts()) and
 ## sanity-checks the field-grid math + centipede chain step/split logic that
 ## the whole game relies on.
 
-const SCRIPTS := [
-	"res://splash.gd",
-	"res://cover_art.gd",
-	"res://field_grid.gd",
-	"res://ui_style.gd",
-	"res://game_settings.gd",
-	"res://hall_of_fame.gd",
-	"res://sound_manager.gd",
-	"res://mushroom.gd",
-	"res://bullet.gd",
-	"res://player.gd",
-	"res://centipede_segment.gd",
-	"res://centipede_chain.gd",
-	"res://spider.gd",
-	"res://flea.gd",
-	"res://scorpion.gd",
-	"res://score_popup.gd",
-	"res://hud.gd",
-	"res://mute_icon.gd",
-	"res://menus.gd",
-	"res://touch_controls.gd",
-	"res://game.gd",
-]
+## Every game script, found automatically — a hand-kept list silently goes
+## stale. Walks res:// recursively, skipping addons/, tools/, android/ (Godot's
+## build template), hidden and .gdignore'd folders and _-prefixed dev scripts
+## (_selftest.gd itself, local helpers like _capture.gd).
+## A script only counts if it also COMPILES: in Godot 4 load() returns the
+## resource even when compilation failed (incl. a broken dependency), so check
+## can_instantiate() (found in mario-clone v1.1, where `load() != null` let a
+## type-inference error through with "all checks passed" and exit 0).
+const SKIP_DIRS := ["addons", "tools", "android"]
+
+func _all_scripts(dir := "res://") -> Array[String]:
+	var out: Array[String] = []
+	for f in DirAccess.get_files_at(dir):
+		if f.ends_with(".gd") and not f.begins_with("_"):
+			out.append(dir.path_join(f))
+	for d in DirAccess.get_directories_at(dir):
+		var sub := dir.path_join(d)
+		if d.begins_with(".") or d in SKIP_DIRS or FileAccess.file_exists(sub.path_join(".gdignore")):
+			continue
+		out.append_array(_all_scripts(sub))
+	return out
 
 func _init() -> void:
 	var fails := 0
 
-	for path in SCRIPTS:
-		fails += _expect(load(path) != null, "parses: %s" % path)
+	var scripts := _all_scripts()
+	fails += _expect(scripts.size() >= 15, "found %d scripts (expect >= 15)" % scripts.size())
+	for path in scripts:
+		var s: Script = load(path)
+		fails += _expect(s != null and s.can_instantiate(), "compiles: %s" % path)
 
 	# --- project config -----------------------------------------------------
 	var canvas := Vector2(
