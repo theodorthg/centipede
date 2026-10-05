@@ -66,6 +66,30 @@ func setup(new_segments: Array[CentipedeSegment], start_col: int, start_row: int
 		segments[i].place_instant(c, start_row)
 		segments[i].is_head = (i == 0)
 
+## Plain-data copy of this chain (cells head-first + movement state) so a
+## player's whole field can be parked while the other player takes a turn
+## (2 players, taking turns — see game.gd's _park_slot()/_load_slot()).
+func snapshot() -> Dictionary:
+	var cells := []
+	for s in segments:
+		cells.append([s.col, s.row])
+	return {"cells": cells, "dir": dir, "interval": tick_interval, "diving": _diving}
+
+## Inverse of snapshot(): `new_segments` are fresh, tree-attached
+## CentipedeSegment nodes (one per saved cell, head first).
+func restore(new_segments: Array[CentipedeSegment], data: Dictionary) -> void:
+	segments = new_segments
+	dir = int(data.dir)
+	tick_interval = float(data.interval)
+	_diving = bool(data.diving)
+	_path.clear()
+	var cells: Array = data.cells
+	for i in range(segments.size()):
+		var c := Vector2i(int(cells[i][0]), int(cells[i][1]))
+		_path.append(c)
+		segments[i].place_instant(c.x, c.y)
+		segments[i].is_head = (i == 0)
+
 func step(delta: float) -> void:
 	if segments.is_empty():
 		return

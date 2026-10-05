@@ -9,13 +9,13 @@ extends Control
 ## help-page paging/wheel/dots, ScrollContainer for long lists), both first
 ## proven in galaga's menus.gd and generalized from there.
 
-signal play_pressed
+signal play_pressed(players: int)
 signal resume_pressed
 signal restart_pressed
 signal quit_to_menu_pressed
 signal settings_changed(cfg: Dictionary)
 
-enum Screen { NONE, START, SETTINGS, SOUND, PAUSE, GAMEOVER, HELP, HIGHSCORES }
+enum Screen { NONE, START, PLAYERS, SETTINGS, SOUND, PAUSE, GAMEOVER, HELP, HIGHSCORES }
 
 const DESIGN_WIDTH := FieldGrid.DESIGN_WIDTH
 const DESIGN_HEIGHT := FieldGrid.DESIGN_HEIGHT
@@ -50,7 +50,7 @@ const HELP_TOUCH := [
 var _panel: PanelContainer
 var _vbox: VBoxContainer
 var _help_back_btn: Button
-var _name_edit: LineEdit
+var _name_edits: Array[LineEdit] = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -114,7 +114,7 @@ func _show_screen(s: int) -> void:
 ## refreshes that must keep the same screen open (help paging, hall-of-fame
 ## name commit).
 func _rebuild() -> void:
-	_name_edit = null
+	_name_edits.clear()
 	_help_back_btn = null
 	# remove_child() (not just queue_free()) so the node is gone from the
 	# tree IMMEDIATELY — otherwise a freshly-freed-but-not-yet-collected old
@@ -130,6 +130,8 @@ func _rebuild() -> void:
 	match screen:
 		Screen.START:
 			_build_start()
+		Screen.PLAYERS:
+			_build_players()
 		Screen.SETTINGS:
 			_build_settings()
 		Screen.SOUND:
@@ -201,11 +203,12 @@ func show_start() -> void:
 func show_pause() -> void:
 	_show_screen(Screen.PAUSE)
 
-func show_gameover(score: int, wave: int) -> void:
-	set_meta("go_score", score)
-	set_meta("go_wave", wave)
+## info: {mode: "solo"|"turns", scores: [..], waves: [..]} (one entry per
+## player).
+func show_gameover(info: Dictionary) -> void:
+	set_meta("go_info", info)
 	set_meta("go_committed", false)
-	set_meta("go_highlight", -1)
+	set_meta("go_highlight", [])
 	_show_screen(Screen.GAMEOVER)
 
 func show_highscores(from: int) -> void:
@@ -277,9 +280,7 @@ func _spacer(h: float) -> Control:
 func _build_start() -> void:
 	_vbox.add_child(_heading("CENTIPEDE"))
 	_vbox.add_child(_hint("Shoot the centipede as it winds down\nthrough the mushroom field."))
-	_vbox.add_child(_button("Play", func():
-		hide_all()
-		play_pressed.emit()))
+	_vbox.add_child(_button("Play", func(): _show_screen(Screen.PLAYERS)))
 	_vbox.add_child(_button("Settings", func():
 		_return_screen = Screen.START
 		_show_screen(Screen.SETTINGS)))
@@ -290,6 +291,22 @@ func _build_start() -> void:
 		_show_screen(Screen.HELP)))
 	if not OS.has_feature("web"):
 		_vbox.add_child(_button("Exit", func(): get_tree().quit()))
+
+# --------------------------------------------------------------- players --
+## Like mario-clone's PLAYERS screen: one player, or two taking turns on this
+## device (the network modes join this list in stage 2).
+func _build_players() -> void:
+	_vbox.add_child(_heading("PLAYERS"))
+	_vbox.add_child(_button("1 Player", func():
+		hide_all()
+		play_pressed.emit(1)))
+	_vbox.add_child(_button("2 Players - take turns", func():
+		hide_all()
+		play_pressed.emit(2)))
+	var h := _hint("Take turns: player 1 plays until a life is lost,\nthen player 2 - each with their own field,\nscore and lives, like the arcade cabinet.")
+	h.add_theme_color_override("font_color", UiStyle.ACCENT)
+	_vbox.add_child(h)
+	_vbox.add_child(_button("Back", func(): _show_screen(Screen.START), true))
 
 # ----------------------------------------------------------------- pause --
 func _build_pause() -> void:
@@ -315,42 +332,74 @@ func _build_pause() -> void:
 		_vbox.add_child(_button("Exit", func(): get_tree().quit()))
 
 # -------------------------------------------------------------- gameover --
+func _go_info() -> Dictionary:
+	return get_meta("go_info", {"mode": "solo", "scores": [0], "waves": [1]})
+
 func _build_gameover() -> void:
-	var score: int = get_meta("go_score", 0)
-	var wave: int = get_meta("go_wave", 1)
+	var info := _go_info()
+	var scores: Array = info.scores
+	var waves: Array = info.waves
+	var turns: bool = scores.size() > 1
 	var committed: bool = get_meta("go_committed", false)
 
 	_vbox.add_child(_heading("GAME OVER"))
-	var score_l := Label.new()
-	score_l.text = "SCORE %06d    ·    WAVE %d" % [score, wave]
-	score_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	score_l.add_theme_font_size_override("font_size", 20)
-	score_l.add_theme_color_override("font_color", Color.WHITE)
-	_vbox.add_child(score_l)
+	if not turns:
+		var score_l := Label.new()
+		score_l.text = "SCORE %06d    ·    WAVE %d" % [scores[0], waves[0]]
+		score_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		score_l.add_theme_font_size_override("font_size", 20)
+		score_l.add_theme_color_override("font_color", Color.WHITE)
+		_vbox.add_child(score_l)
+	else:
+		var best := 0 if int(scores[0]) >= int(scores[1]) else 1
+		var tie: bool = int(scores[0]) == int(scores[1])
+		for i in scores.size():
+			var l := Label.new()
+			l.text = "P%d    %06d    ·    WAVE %d" % [i + 1, scores[i], waves[i]]
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			l.add_theme_font_size_override("font_size", 20)
+			l.add_theme_color_override("font_color", UiStyle.ACCENT if (i == best and not tie) else Color.WHITE)
+			_vbox.add_child(l)
+		var w := _hint("DRAW!" if tie else "PLAYER %d WINS!" % (best + 1))
+		w.add_theme_font_size_override("font_size", 22)
+		w.add_theme_color_override("font_color", UiStyle.ACCENT)
+		_vbox.add_child(w)
 	_vbox.add_child(_spacer(4))
 
-	if HallOfFame.qualifies(score) and not committed:
-		_name_edit = LineEdit.new()
-		_name_edit.placeholder_text = "Name"
-		_name_edit.max_length = 8
-		_name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_name_edit.custom_minimum_size = Vector2(180, BTN_H)
-		_name_edit.add_theme_font_size_override("font_size", 20)
-		_name_edit.text_submitted.connect(func(_t: String): _commit_score())
-		var entry := HBoxContainer.new()
-		entry.alignment = BoxContainer.ALIGNMENT_CENTER
-		entry.add_theme_constant_override("separation", 8)
-		entry.add_child(_name_edit)
-		entry.add_child(_button("Enter", func(): _commit_score()))
-		_vbox.add_child(entry)
-		_vbox.add_child(_spacer(4))
+	if not committed:
+		for i in scores.size():
+			if HallOfFame.qualifies(int(scores[i])):
+				var e := LineEdit.new()
+				e.placeholder_text = "Name" if not turns else "Name P%d" % (i + 1)
+				e.max_length = 8
+				e.alignment = HORIZONTAL_ALIGNMENT_CENTER
+				e.custom_minimum_size = Vector2(180, BTN_H)
+				e.add_theme_font_size_override("font_size", 20)
+				e.set_meta("player", i)
+				e.text_submitted.connect(func(_t: String): _commit_score())
+				_name_edits.append(e)
+		if not _name_edits.is_empty():
+			var entry := VBoxContainer.new()
+			entry.add_theme_constant_override("separation", 8)
+			var row := HBoxContainer.new()
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.add_theme_constant_override("separation", 8)
+			for e in _name_edits:
+				row.add_child(e)
+			if _name_edits.size() == 1:
+				row.add_child(_button("Enter", func(): _commit_score()))
+			entry.add_child(row)
+			if _name_edits.size() > 1:
+				entry.add_child(_button("Enter", func(): _commit_score()))
+			_vbox.add_child(entry)
+			_vbox.add_child(_spacer(4))
 
 	var hof_box := GridContainer.new()
 	hof_box.columns = 4
 	hof_box.add_theme_constant_override("h_separation", 10)
 	hof_box.add_theme_constant_override("v_separation", 2)
 	_vbox.add_child(hof_box)
-	_render_hof(hof_box, HallOfFame.load_list(), get_meta("go_highlight", -1))
+	_render_hof(hof_box, HallOfFame.load_list(), get_meta("go_highlight", []))
 	_vbox.add_child(_spacer(6))
 
 	_vbox.add_child(_button("Play Again", func():
@@ -366,38 +415,52 @@ func _build_gameover() -> void:
 			_maybe_auto_commit()
 			get_tree().quit()))
 
+## Enters every score that got a name field (an empty field = "YOU" for one
+## player, "P1"/"P2" for two), then redraws the list with those rows lit up.
 func _commit_score() -> void:
-	var who := (_name_edit.text if _name_edit else "").strip_edges()
-	if who == "":
-		who = "YOU"
-	who = who.to_upper()
-	var score: int = get_meta("go_score", 0)
-	var wave: int = get_meta("go_wave", 1)
-	var list := HallOfFame.insert(who, score, wave)
+	var info := _go_info()
+	var turns: bool = info.scores.size() > 1
+	var added := []
+	for e in _name_edits:
+		if not is_instance_valid(e):
+			continue
+		var i: int = e.get_meta("player", 0)
+		var who := e.text.strip_edges()
+		if who == "":
+			who = "P%d" % (i + 1) if turns else "YOU"
+		who = who.to_upper()
+		var score := int(info.scores[i])
+		HallOfFame.insert(who, score, int(info.waves[i]))
+		added.append([who, score])
+	var list := HallOfFame.load_list()
+	var hl := []
+	for a in added:
+		for k in list.size():
+			if k not in hl and list[k].name == a[0] and int(list[k].score) == a[1]:
+				hl.append(k)
+				break
 	set_meta("go_committed", true)
-	var idx := -1
-	for i in list.size():
-		if list[i].name == who and int(list[i].score) == score:
-			idx = i
-			break
-	set_meta("go_highlight", idx)
+	set_meta("go_highlight", hl)
 	_rebuild()
 
 ## A qualifying score that's never actually entered (the player leaves via
 ## Play Again/Main Menu/Exit without typing a name) would otherwise just be
-## lost — commit it as "YOU" automatically, same as pressing "Enter" with an
-## empty field would.
+## lost — commit it under the default name automatically, same as pressing
+## "Enter" with an empty field would.
 func _maybe_auto_commit() -> void:
-	if _name_edit != null and not get_meta("go_committed", false):
+	if not _name_edits.is_empty() and not get_meta("go_committed", false):
 		_commit_score()
 
-func _render_hof(grid: GridContainer, list: Array, highlight: int) -> void:
+func _render_hof(grid: GridContainer, list: Array, highlights: Array) -> void:
 	if list.is_empty():
+		# one wide cell — in a narrow 4-column cell the autowrapped hint broke
+		# after every few characters
+		grid.columns = 1
 		grid.add_child(_hint("— no entries yet —"))
 		return
 	for i in list.size():
 		var e = list[i]
-		var col := UiStyle.ACCENT if i == highlight else Color.WHITE
+		var col := UiStyle.ACCENT if i in highlights else Color.WHITE
 		var rank_l := Label.new()
 		rank_l.text = "%d." % (i + 1)
 		rank_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -433,7 +496,7 @@ func _build_highscores() -> void:
 	hof_box.add_theme_constant_override("h_separation", 10)
 	hof_box.add_theme_constant_override("v_separation", 2)
 	_vbox.add_child(hof_box)
-	_render_hof(hof_box, HallOfFame.load_list(), -1)
+	_render_hof(hof_box, HallOfFame.load_list(), [])
 	_vbox.add_child(_spacer(6))
 	_vbox.add_child(_button("Back", func(): _show_screen(_return_screen), true))
 
@@ -587,11 +650,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# Hall of Fame name entry: a LineEdit only submits on Enter/Kp-Enter (its
 	# own internal check), never on the generic ui_accept a gamepad's A sends.
-	if _name_edit != null and is_instance_valid(_name_edit) and _name_edit.has_focus() \
-			and event.is_action_pressed("ui_accept"):
-		_commit_score()
-		get_viewport().set_input_as_handled()
-		return
+	if event.is_action_pressed("ui_accept"):
+		for e in _name_edits:
+			if is_instance_valid(e) and e.has_focus():
+				_commit_score()
+				get_viewport().set_input_as_handled()
+				return
 
 	# B (ui_cancel) always triggers whichever button on the current screen is
 	# tagged "is_cancel" (see _button()), independent of what has focus.

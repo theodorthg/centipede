@@ -115,6 +115,30 @@ func _init() -> void:
 	fchain.step(CentipedeChain.STUCK_AT_BOTTOM_TIMEOUT)
 	fails += _expect(fchain.is_stuck(), "a multi-segment chain at the bottom for too long ALSO reports stuck")
 
+	# --- snapshot / restore (2 players taking turns park their field) -------
+	var rsegs: Array[CentipedeSegment] = [CentipedeSegment.new(), CentipedeSegment.new(), CentipedeSegment.new()]
+	var rchain := CentipedeChain.new()
+	rchain.blocked = func(_c, _r): return false
+	rchain.setup(rsegs, 7, 3, 1, 0.01)
+	rchain.step(0.031)                      # a few ticks so the shape isn't a straight line
+	var snap: Dictionary = rchain.snapshot()
+	var nsegs: Array[CentipedeSegment] = [CentipedeSegment.new(), CentipedeSegment.new(), CentipedeSegment.new()]
+	var nchain := CentipedeChain.new()
+	nchain.blocked = func(_c, _r): return false
+	nchain.restore(nsegs, snap)
+	var same := true
+	for i in 3:
+		same = same and nsegs[i].col == rsegs[i].col and nsegs[i].row == rsegs[i].row
+	fails += _expect(same, "a restored chain sits on exactly the saved cells")
+	fails += _expect(nsegs[0].is_head and not nsegs[1].is_head, "restored chain: only the first segment is the head")
+	fails += _expect(nchain.dir == rchain.dir, "restored chain keeps its direction")
+	rchain.step(0.011)
+	nchain.step(0.011)
+	same = true
+	for i in 3:
+		same = same and nsegs[i].col == rsegs[i].col and nsegs[i].row == rsegs[i].row
+	fails += _expect(same, "restored chain keeps moving exactly like the original")
+
 	if fails == 0:
 		print("_selftest: all checks passed")
 	else:

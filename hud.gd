@@ -19,6 +19,10 @@ const BTN_SIZE := 56.0
 const BTN_MARGIN := 12.0
 
 var _score: Label
+var _other: Label                 ## second score line: the other player / the opponent
+var _prefix := ""
+var _other_lives := -1            ## reserve shown bottom-right (-1 = hidden)
+var _other_tag := ""
 var _wave: Label
 var _pause_btn: Button
 var _mute_btn: Button
@@ -43,6 +47,13 @@ func _ready() -> void:
 	_score.add_theme_font_size_override("font_size", 22)
 	add_child(_score)
 	UiStyle.impact_label(_score)
+
+	_other = Label.new()
+	_other.position = Vector2(14, 40)
+	_other.add_theme_font_size_override("font_size", 16)
+	_other.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+	_other.visible = false
+	add_child(_other)
 
 	_wave = Label.new()
 	_wave.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -93,8 +104,9 @@ func _ready() -> void:
 	_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	# Wide enough for the longest banner text ("AUTO-CLEARED!", see
 	# game.gd::_check_wave_clear()), not just "CLEARED!"/"GET READY!".
-	_banner_label.position = Vector2(DESIGN_WIDTH * 0.5 - 240, DESIGN_HEIGHT * 0.5 - 40)
-	_banner_label.size = Vector2(480, 80)
+	# Two lines tall: "PLAYER 2\nGET READY!" when the turn passes over.
+	_banner_label.position = Vector2(DESIGN_WIDTH * 0.5 - 240, DESIGN_HEIGHT * 0.5 - 60)
+	_banner_label.size = Vector2(480, 120)
 	_banner_label.add_theme_font_size_override("font_size", 40)
 	_banner_label.modulate.a = 0.0
 	_banner_label.visible = false
@@ -102,7 +114,24 @@ func _ready() -> void:
 	UiStyle.impact_label(_banner_label)
 
 func set_score(n: int) -> void:
-	_score.text = "%06d" % n
+	_score.text = "%s%06d" % [_prefix, n]
+
+## "P1 "/"P2 " in front of the score while two players take turns ("" solo);
+## the score label must be refreshed by the caller afterwards.
+func set_prefix(p: String) -> void:
+	_prefix = p
+
+## Second line under the score: the player waiting for their turn, or the
+## online opponent. `text` == "" hides it.
+func set_other(text: String) -> void:
+	_other.visible = text != ""
+	_other.text = text
+
+## Reserve of the other player/opponent, bottom-right ("P2  x2"); n < 0 hides.
+func set_other_lives(tag: String, n: int) -> void:
+	_other_tag = tag
+	_other_lives = n
+	queue_redraw()
 
 func set_wave(n: int) -> void:
 	_wave.text = "WAVE %d" % n
@@ -172,6 +201,11 @@ func _draw() -> void:
 		var f := ThemeDB.fallback_font
 		draw_string(f, Vector2(14.0 + ICON_H + 8.0, y + ICON_H * 0.8), "x %d" % reserve,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+	if _other_lives >= 0:
+		var f2 := ThemeDB.fallback_font
+		var txt := "%s  x%d" % [_other_tag, maxi(_other_lives - 1, 0)]
+		draw_string(f2, Vector2(DESIGN_WIDTH - 14.0 - 130.0, y + ICON_H * 0.8), txt,
+			HORIZONTAL_ALIGNMENT_RIGHT, 130.0, 18, Color(1, 1, 1, 0.6))
 
 func _draw_ship_icon(center: Vector2) -> void:
 	var r := ICON_H * 0.5

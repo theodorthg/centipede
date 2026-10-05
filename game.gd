@@ -44,6 +44,11 @@ const CLEARED_DELAY := 2.0
 const RESPAWN_INVULN := 2.0
 
 enum State { TITLE, PLAYING, TRANSITION, GAMEOVER }
+## SOLO: one player. TURNS: two players on this device, each with their own
+## field/score/lives/wave, the turn passing on at every lost life (like the
+## arcade cabinet). DUEL: two devices (LAN or online), each runs its own game
+## at the same time — see duel.gd.
+enum Mode { SOLO, TURNS, DUEL }
 
 const MushroomScene := preload("res://mushroom.tscn")
 const BulletScene := preload("res://bullet.tscn")
@@ -60,6 +65,14 @@ const ScorePopupScene := preload("res://score_popup.tscn")
 @onready var _player: Player = $Player
 
 var _state := State.TITLE
+var _mode := Mode.SOLO
+## TURNS: both players' state. The ACTIVE player's live values are the members
+## below (_score, _lives, ...) plus the nodes on the field — _slots[_cur] is
+## only brought up to date when the turn is handed over (_park_slot()).
+var _slots: Array[Dictionary] = []
+var _cur := 0
+var _field_seed := 0
+var _wave_rng := RandomNumberGenerator.new()
 var _cfg := {}
 var _touch := false
 var _paused := false
@@ -108,7 +121,7 @@ func _ready() -> void:
 	_touch_controls.fire_down.connect(func(): _player.fire_held = true)
 	_touch_controls.fire_up.connect(func(): _player.fire_held = false)
 
-	_menus.play_pressed.connect(_start_game)
+	_menus.play_pressed.connect(_on_play)
 	_menus.resume_pressed.connect(_resume)
 	_menus.restart_pressed.connect(_start_game)
 	_menus.quit_to_menu_pressed.connect(_to_title)
@@ -189,6 +202,10 @@ func _to_title(press_start := false) -> void:
 	else:
 		_menus.show_start()
 
+func _on_play(players: int) -> void:
+	_mode = Mode.TURNS if players == 2 else Mode.SOLO
+	_start_game()
+
 func _start_game() -> void:
 	_title_art.visible = false
 	_await_start = false
@@ -197,11 +214,17 @@ func _start_game() -> void:
 	_lives = _cfg.lives
 	_wave = 1
 	_next_extra = _cfg.extra_life if _cfg.extra_life > 0 else 0
+	_cur = 0
+	_field_seed = randi()
+	_slots.clear()
+	if _mode == Mode.TURNS:
+		for i in 2:
+			_slots.append({"score": 0, "lives": _cfg.lives, "wave": 1, "fresh": true,
+				"next_extra": _next_extra, "seed": _field_seed if i == 0 else randi(),
+				"auto": false, "mush": [], "chains": []})
 	_hud_layer.visible = true
 	_touch_controls.visible = _touch
-	_hud.set_score(_score)
-	_hud.set_lives(_lives)
-	_hud.set_wave(_wave)
+	_refresh_hud()
 	_player.zone_top_row = FieldGrid.zone_top_row(_cfg.movement_zone)
 	_clear_field()
 	_spawn_wave()
@@ -210,11 +233,30 @@ func _start_game() -> void:
 	_player.input_enabled = false
 	get_tree().paused = false
 	_paused = false
+	_reset_enemy_timers()
+	_snd_play("get-ready")
+	_begin_transition("PLAYER 1\nGET READY!" if _mode == Mode.TURNS else "GET READY!",
+		READY_DELAY, _finish_start)
+
+func _reset_enemy_timers() -> void:
 	_spider_t = randf_range(SPIDER_INTERVAL_MIN, SPIDER_INTERVAL_MAX)
 	_flea_check_t = FLEA_CHECK_INTERVAL
 	_scorpion_t = randf_range(SCORPION_INTERVAL_MIN, SCORPION_INTERVAL_MAX)
-	_snd_play("get-ready")
-	_begin_transition("GET READY!", READY_DELAY, _finish_start)
+
+## Everything the HUD shows for the active player, plus the line for the one
+## waiting (TURNS) — called at the start and whenever the turn changes hands.
+func _refresh_hud() -> void:
+	_hud.set_prefix("P%d " % (_cur + 1) if _mode == Mode.TURNS else "")
+	_hud.set_score(_score)
+	_hud.set_lives(_lives)
+	_hud.set_wave(_wave)
+	if _mode == Mode.TURNS:
+		var o: Dictionary = _slots[1 - _cur]
+		_hud.set_other("P%d  %06d" % [2 - _cur, int(o.score)])
+		_hud.set_other_lives("P%d" % (2 - _cur), int(o.lives))
+	else:
+		_hud.set_other("")
+		_hud.set_other_lives("", -1)
 
 func _finish_start() -> void:
 	_player.input_enabled = true
@@ -230,14 +272,16 @@ func _spawn_wave() -> void:
 	_scatter_mushrooms()
 	_spawn_centipede()
 
+## Seeded per (field seed, wave): both devices of a duel get the same field.
 func _scatter_mushrooms() -> void:
+	_wave_rng.seed = _field_seed * 1000003 + _wave * 7919
 	var count: int = MUSHROOM_BASE_COUNT + (_wave - 1) * 2
 	var placed := 0
 	var attempts := 0
 	while placed < count and attempts < count * 25:
 		attempts += 1
-		var col := randi_range(0, FieldGrid.COLS - 1)
-		var row := randi_range(2, FieldGrid.ROWS - 5)
+		var col := _wave_rng.randi_range(0, FieldGrid.COLS - 1)
+		var row := _wave_rng.randi_range(2, FieldGrid.ROWS - 5)
 		var key := Vector2i(col, row)
 		if _mushrooms.has(key):
 			continue
@@ -560,10 +604,14 @@ func _kill_player() -> void:
 	_snd_play("player-death")
 	_lives -= 1
 	_hud.set_lives(_lives)
-	if _lives <= 0:
+	var other_alive := _mode == Mode.TURNS and int(_slots[1 - _cur].lives) > 0
+	if _lives <= 0 and not other_alive:
 		_player.alive = false
 		_player.input_enabled = false
 		_game_over()
+		return
+	if other_alive:
+		_hand_over()
 		return
 	# Same "GET READY!" beat as the start of a life (see _start_game()) —
 	# reposition right away so the player sees the ship sitting at the spawn
@@ -572,6 +620,70 @@ func _kill_player() -> void:
 	_player.input_enabled = false
 	_snd_play("get-ready")
 	_begin_transition("GET READY!", READY_DELAY, _finish_respawn)
+
+## TURNS: this player lost a life (or their last one) — park their field and
+## let the other one carry on from theirs.
+func _hand_over() -> void:
+	_player.input_enabled = false
+	_park_slot()
+	_load_slot(1 - _cur)
+	_refresh_hud()
+	_player.reset(_spawn_point())
+	_reset_enemy_timers()
+	_snd_play("get-ready")
+	_begin_transition("PLAYER %d\nGET READY!" % (_cur + 1), READY_DELAY, _finish_respawn)
+
+## Copies the active player's values + whole field into their slot.
+func _park_slot() -> void:
+	var sl: Dictionary = _slots[_cur]
+	sl.score = _score
+	sl.lives = _lives
+	sl.wave = _wave
+	sl.next_extra = _next_extra
+	sl.seed = _field_seed
+	sl.auto = _wave_auto_cleared
+	sl.fresh = false
+	var mush := []
+	for k in _mushrooms:
+		var m: Mushroom = _mushrooms[k]
+		mush.append([k.x, k.y, m.hp, m.poisoned])
+	sl.mush = mush
+	var chains := []
+	for c in _chains:
+		chains.append(c.snapshot())
+	sl.chains = chains
+
+## Makes slot `i` the active player: values into the members, field rebuilt.
+func _load_slot(i: int) -> void:
+	_cur = i
+	var sl: Dictionary = _slots[i]
+	_score = int(sl.score)
+	_lives = int(sl.lives)
+	_wave = int(sl.wave)
+	_next_extra = int(sl.next_extra)
+	_field_seed = int(sl.seed)
+	_wave_auto_cleared = bool(sl.auto)
+	_clear_field()
+	if sl.fresh:
+		_spawn_wave()
+		return
+	for e in sl.mush:
+		_add_mushroom(int(e[0]), int(e[1]))
+		var m: Mushroom = _mushrooms[Vector2i(int(e[0]), int(e[1]))]
+		m.hp = int(e[2])
+		m.poisoned = bool(e[3])
+		m.queue_redraw()
+	for cd in sl.chains:
+		var segs: Array[CentipedeSegment] = []
+		for _n in range(cd.cells.size()):
+			var seg: CentipedeSegment = SegmentScene.instantiate()
+			add_child(seg)
+			segs.append(seg)
+		var chain := CentipedeChain.new()
+		chain.blocked = _cell_blocked
+		chain.poisoned = _cell_poisoned
+		chain.restore(segs, cd)
+		_chains.append(chain)
 
 func _finish_respawn() -> void:
 	_player.input_enabled = true
@@ -618,7 +730,13 @@ func _add_score(n: int) -> void:
 func _game_over() -> void:
 	_state = State.GAMEOVER
 	_snd_play("game-over")
-	_menus.show_gameover(_score, _wave)
+	if _mode == Mode.TURNS:
+		_park_slot()
+		_menus.show_gameover({"mode": "turns",
+			"scores": [int(_slots[0].score), int(_slots[1].score)],
+			"waves": [int(_slots[0].wave), int(_slots[1].wave)]})
+	else:
+		_menus.show_gameover({"mode": "solo", "scores": [_score], "waves": [_wave]})
 
 # ------------------------------------------------------------------ pause --
 func _toggle_pause() -> void:
