@@ -11,8 +11,12 @@ offene Punkte stehen noch in `CLAUDE.md` → „Bekannte offene Punkte“.
       übernehmen.
 
 Ideen für später (Einschätzung 2026-10-03, noch nicht beauftragt):
-- [ ] 2 Spieler abwechselnd (wie der Automat): günstig, eigenes Pilzfeld
-      pro Spieler (wie im Original).
+- [x] 2026-10-05 2 Spieler abwechselnd (wie der Automat): eigenes Pilzfeld
+      pro Spieler, Players-Menü wie mario-clone.
+- [x] 2026-10-05 Zwei Geräte per LAN/WLAN und Online (Relay): Duell — jedes
+      Gerät spielt sein eigenes Spiel gleichzeitig, gleicher Seed, Gegner-
+      Stand live im HUD, Rematch, Rundenstand. (Kein Host-rechnet-Gast-zeigt:
+      das Spiel braucht es nicht, siehe CLAUDE.md „Mehrspieler".)
 - [ ] Coop gleichzeitig: zwei Schützen in der Spielerzone. Mechanisch
       passt das gut (geteilte Tastatur / zwei Pads / Maus + Pad), Spinne
       zielt auf den nächsten. Mittlerer Nutzen.

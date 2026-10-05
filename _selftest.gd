@@ -139,6 +139,24 @@ func _init() -> void:
 		same = same and nsegs[i].col == rsegs[i].col and nsegs[i].row == rsegs[i].row
 	fails += _expect(same, "restored chain keeps moving exactly like the original")
 
+	# --- duel: round result + room-code cleanup -----------------------------
+	var duel := Duel.new()
+	fails += _expect(duel.result() == 0, "duel: no result before both games are over")
+	duel.my_over = true
+	fails += _expect(duel.result() == 0, "duel: still no result while the opponent plays")
+	duel.opp_over = true
+	duel.my_score = 5000
+	duel.opp_score = 3000
+	fails += _expect(duel.result() == 1, "duel: higher own score wins")
+	duel.opp_score = 7000
+	fails += _expect(duel.result() == 2, "duel: lower own score loses")
+	duel.opp_score = 5000
+	fails += _expect(duel.result() == 3, "duel: equal scores draw")
+	duel.free()
+	fails += _expect(NetLink.clean_code(" k7q5 ") == "K7QS", "typed room code: upper case, look-alike digits mapped")
+	fails += _expect(NetLink.GAME == "centipede", "relay game tag is centipede")
+	fails += _expect(NetLink.TIMEOUT_MAX_MS <= 15000 and Duel.CONNECT_TIMEOUT <= 15.0, "connect timeouts are at most 15 s")
+
 	if fails == 0:
 		print("_selftest: all checks passed")
 	else:

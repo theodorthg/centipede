@@ -15,7 +15,8 @@ signal restart_pressed
 signal quit_to_menu_pressed
 signal settings_changed(cfg: Dictionary)
 
-enum Screen { NONE, START, PLAYERS, SETTINGS, SOUND, PAUSE, GAMEOVER, HELP, HIGHSCORES }
+enum Screen { NONE, START, PLAYERS, SETTINGS, SOUND, PAUSE, GAMEOVER, HELP, HIGHSCORES,
+	NETMENU, ONLINEMENU, ONLINEJOIN, NETHOST, NETJOIN, NETWAIT, INFO }
 
 const DESIGN_WIDTH := FieldGrid.DESIGN_WIDTH
 const DESIGN_HEIGHT := FieldGrid.DESIGN_HEIGHT
@@ -40,10 +41,14 @@ const HELP_DIR := "res://assets/graphics/help/"
 const HELP_DESKTOP := [
 	{"file": "keyboard", "h": "Controls — Keyboard/Gamepad"},
 	{"file": "mouse", "h": "Controls — Mouse"},
+	{"file": "players", "h": "2 Players"},
+	{"file": "network", "h": "LAN & Online"},
 	{"file": "goal", "h": "Goal & Scoring"},
 ]
 const HELP_TOUCH := [
 	{"file": "touch", "h": "Controls — Touch"},
+	{"file": "players", "h": "2 Players"},
+	{"file": "network", "h": "LAN & Online"},
 	{"file": "goal", "h": "Goal & Scoring"},
 ]
 
@@ -51,6 +56,25 @@ var _panel: PanelContainer
 var _vbox: VBoxContainer
 var _help_back_btn: Button
 var _name_edits: Array[LineEdit] = []
+
+## The two-device duel (LAN / online) — set by game.gd. duel_game is true while
+## a duel round is on (the pause menu then has no Settings/Restart, only Leave).
+var duel: Duel
+var duel_game := false
+var _net_online := false
+var _room_code := ""
+var _found := {}                    ## LAN guest: ip -> device name
+var _hosts_box: VBoxContainer      ## NETJOIN: one button per host found, refilled in place
+var _hosts_hint: Label
+var _edit_dirty := false           ## the player typed into the address field
+var _ip_edit: LineEdit
+var _ip_submit := Callable()
+var _info := ["", ""]
+var _duel_head: Label
+var _duel_opp: Label
+var _duel_tally: Label
+var _duel_btn: Button
+var _duel_note: Label
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -116,6 +140,11 @@ func _show_screen(s: int) -> void:
 func _rebuild() -> void:
 	_name_edits.clear()
 	_help_back_btn = null
+	_ip_edit = null
+	_hosts_box = null
+	_hosts_hint = null
+	_duel_head = null
+	_duel_btn = null
 	# remove_child() (not just queue_free()) so the node is gone from the
 	# tree IMMEDIATELY — otherwise a freshly-freed-but-not-yet-collected old
 	# control could still turn up in this same frame's _focusable_controls()
@@ -132,6 +161,20 @@ func _rebuild() -> void:
 			_build_start()
 		Screen.PLAYERS:
 			_build_players()
+		Screen.NETMENU:
+			_build_netmenu()
+		Screen.ONLINEMENU:
+			_build_onlinemenu()
+		Screen.ONLINEJOIN:
+			_build_onlinejoin()
+		Screen.NETHOST:
+			_build_nethost()
+		Screen.NETJOIN:
+			_build_netjoin()
+		Screen.NETWAIT:
+			_build_netwait()
+		Screen.INFO:
+			_build_info()
 		Screen.SETTINGS:
 			_build_settings()
 		Screen.SOUND:
@@ -293,8 +336,16 @@ func _build_start() -> void:
 		_vbox.add_child(_button("Exit", func(): get_tree().quit()))
 
 # --------------------------------------------------------------- players --
-## Like mario-clone's PLAYERS screen: one player, or two taking turns on this
-## device (the network modes join this list in stage 2).
+## Like mario-clone's PLAYERS screen: one player, two taking turns on this
+## device, or two devices (LAN / Wi-Fi, online) each playing their own game at
+## the same time.
+## LAN needs UDP (not in a browser); online needs the relay's address.
+static func wifi_possible() -> bool:
+	return NetLink.lan_possible()
+
+static func online_possible() -> bool:
+	return NetLink.relay_url() != ""
+
 func _build_players() -> void:
 	_vbox.add_child(_heading("PLAYERS"))
 	_vbox.add_child(_button("1 Player", func():
@@ -303,7 +354,11 @@ func _build_players() -> void:
 	_vbox.add_child(_button("2 Players - take turns", func():
 		hide_all()
 		play_pressed.emit(2)))
-	var h := _hint("Take turns: player 1 plays until a life is lost,\nthen player 2 - each with their own field,\nscore and lives, like the arcade cabinet.")
+	if wifi_possible() and duel != null:
+		_vbox.add_child(_button("2 Players - LAN / Wi-Fi", func(): _show_screen(Screen.NETMENU)))
+	if online_possible() and duel != null:
+		_vbox.add_child(_button("2 Players - Online", func(): _show_screen(Screen.ONLINEMENU)))
+	var h := _hint("Take turns: one device, player 1 until a life is lost,\nthen player 2 - each with their own field.\nLAN / Online: two devices, both play at the same\ntime on the same fields - the higher score wins.")
 	h.add_theme_color_override("font_color", UiStyle.ACCENT)
 	_vbox.add_child(h)
 	_vbox.add_child(_button("Back", func(): _show_screen(Screen.START), true))
@@ -311,6 +366,19 @@ func _build_players() -> void:
 # ----------------------------------------------------------------- pause --
 func _build_pause() -> void:
 	_vbox.add_child(_heading("PAUSED"))
+	if duel_game:
+		_vbox.add_child(_button("Resume", func():
+			hide_all()
+			resume_pressed.emit()))
+		_vbox.add_child(_button("How to Play", func():
+			_return_screen = Screen.PAUSE
+			_help_page = 0
+			_show_screen(Screen.HELP)))
+		_vbox.add_child(_button("Leave game", func():
+			hide_all()
+			quit_to_menu_pressed.emit()))
+		_vbox.add_child(_hint("Your opponent keeps playing."))
+		return
 	_vbox.add_child(_button("Resume", func():
 		hide_all()
 		resume_pressed.emit()))
@@ -337,6 +405,9 @@ func _go_info() -> Dictionary:
 
 func _build_gameover() -> void:
 	var info := _go_info()
+	if info.mode == "duel":
+		_build_gameover_duel()
+		return
 	var scores: Array = info.scores
 	var waves: Array = info.waves
 	var turns: bool = scores.size() > 1
@@ -486,6 +557,259 @@ func _render_hof(grid: GridContainer, list: Array, highlights: Array) -> void:
 		grid.add_child(name_l)
 		grid.add_child(wave_l)
 		grid.add_child(score_l)
+
+# ------------------------------------------------------- duel / network --
+func show_info(title: String, text: String) -> void:
+	_info = [title, text]
+	_show_screen(Screen.INFO)
+
+func _build_info() -> void:
+	_vbox.add_child(_heading(_info[0]))
+	_vbox.add_child(_hint(_info[1]))
+	_vbox.add_child(_button("OK", func(): _show_screen(Screen.START), true))
+
+## Menus gets its Duel from game.gd — the signals feed the waiting / joining /
+## game-over screens.
+func set_duel(d: Duel) -> void:
+	duel = d
+	d.room_ready.connect(_on_room_ready)
+	d.lan_hosts_changed.connect(_on_lan_hosts)
+	d.opponent_changed.connect(_refresh_duel_gameover)
+	d.rematch_changed.connect(func(_m: bool, _t: bool): _refresh_duel_gameover())
+
+func _on_room_ready(code: String) -> void:
+	_room_code = code
+	if screen == Screen.NETHOST:
+		_rebuild()
+
+func _on_lan_hosts(hosts: Dictionary) -> void:
+	_found = hosts
+	if screen == Screen.NETJOIN:
+		_fill_hosts(true)
+
+func _cancel_net() -> void:
+	if duel:
+		duel.leave()
+	_show_screen(Screen.START)
+
+func _lan_cfg() -> Dictionary:
+	return GameSettings.load_all()
+
+func _build_netmenu() -> void:
+	_vbox.add_child(_heading("LAN / WI-FI"))
+	_vbox.add_child(_button("Host a game", func(): _start_hosting(false)))
+	_vbox.add_child(_button("Join a game", func():
+		_found = {}
+		duel.search_lan()
+		_show_screen(Screen.NETJOIN)))
+	var h := _hint("Both devices in the same network (cable or Wi-Fi). Both play at the same time on the same fields. The host's settings (lives, difficulty, movement area) apply to both. Same game version on both.")
+	h.add_theme_color_override("font_color", UiStyle.ACCENT)
+	_vbox.add_child(h)
+	_vbox.add_child(_hint("Host is a PC with a firewall: allow UDP ports 47110-47111. No admin rights (school network)? Online always works."))
+	_vbox.add_child(_button("Back", func(): _show_screen(Screen.PLAYERS), true))
+
+func _build_onlinemenu() -> void:
+	_vbox.add_child(_heading("ONLINE"))
+	_vbox.add_child(_button("Host a game", func(): _start_hosting(true)))
+	_vbox.add_child(_button("Join a game", func(): _show_screen(Screen.ONLINEJOIN)))
+	var h := _hint("Play from anywhere: the host gets a room code and tells it to the other player. Both play at the same time on the same fields - works in the browser, too. The host's settings apply to both. Same game version.")
+	h.add_theme_color_override("font_color", UiStyle.ACCENT)
+	_vbox.add_child(h)
+	_vbox.add_child(_button("Back", func(): _show_screen(Screen.PLAYERS), true))
+
+func _start_hosting(online: bool) -> void:
+	if duel == null:
+		return
+	_net_online = online
+	_room_code = ""
+	var err := duel.host_online(_lan_cfg()) if online else duel.host_lan(_lan_cfg())
+	if err != OK:
+		if online:
+			show_info("ONLINE", "Could not reach the online server (error %d)." % err)
+		else:
+			show_info("LAN / WI-FI", "Could not open the game for the network (error %d).\nIs another copy of the game already hosting?\nOnline always works." % err)
+		return
+	_show_screen(Screen.NETHOST)
+
+func _build_nethost() -> void:
+	_vbox.add_child(_heading("WAITING FOR PLAYER 2"))
+	if _net_online:
+		if _room_code == "":
+			_vbox.add_child(_hint("Opening a room on the online server ..."))
+		else:
+			_vbox.add_child(_hint("Tell the other player this room code:"))
+			var code := _heading(_room_code)
+			code.add_theme_font_size_override("font_size", 40)
+			code.add_theme_color_override("font_color", UiStyle.ACCENT)
+			_vbox.add_child(code)
+			_vbox.add_child(_hint("On their device: Play > 2 Players - Online > Join a game."))
+	else:
+		var ips := NetLink.local_ips()
+		var addr := ", ".join(ips) if not ips.is_empty() else "no network address found"
+		_vbox.add_child(_hint("On the other device: Play > 2 Players - LAN / Wi-Fi > Join a game. This game shows up there by itself, or type its address:"))
+		var a := _hint(addr)
+		a.add_theme_color_override("font_color", UiStyle.ACCENT)
+		_vbox.add_child(a)
+	_vbox.add_child(_button("Cancel", _cancel_net, true))
+
+func _make_edit(placeholder: String, max_len: int, w: float) -> LineEdit:
+	var e := LineEdit.new()
+	e.placeholder_text = placeholder
+	e.max_length = max_len
+	e.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	e.custom_minimum_size = Vector2(w, BTN_H)
+	e.add_theme_font_size_override("font_size", 20)
+	return e
+
+func _build_onlinejoin() -> void:
+	_vbox.add_child(_heading("JOIN ONLINE"))
+	_vbox.add_child(_hint("Type the room code the host's screen shows:"))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	_ip_edit = _make_edit("CODE", 4, 120)
+	var ed := _ip_edit
+	_ip_edit.text_changed.connect(func(t: String):
+		var up := t.to_upper()
+		if up != t:
+			ed.text = up
+			ed.caret_column = up.length())
+	_ip_submit = func(): _join_code(ed.text)
+	_ip_edit.text_submitted.connect(func(_t: String): _ip_submit.call())
+	row.add_child(_ip_edit)
+	var join_btn := _button("Join", func(): _ip_submit.call())
+	join_btn.custom_minimum_size = Vector2(110, BTN_H)
+	row.add_child(join_btn)
+	_vbox.add_child(row)
+	_vbox.add_child(_button("Back", func(): _show_screen(Screen.ONLINEMENU), true))
+
+func _join_code(code: String) -> void:
+	code = NetLink.clean_code(code)
+	if code.length() != 4 or duel == null:
+		return
+	set_meta("net_ip", "room " + code)
+	if duel.join_online(code) != OK:
+		show_info("ONLINE", "Could not reach the online server.")
+		return
+	_show_screen(Screen.NETWAIT)
+
+func _build_netjoin() -> void:
+	_vbox.add_child(_heading("JOIN A GAME"))
+	_hosts_hint = _hint("Looking for games in this network ... Not found? The host's firewall may block UDP 47110-47111 - or use Online, it always works.")
+	_vbox.add_child(_hosts_hint)
+	_hosts_box = VBoxContainer.new()
+	_hosts_box.add_theme_constant_override("separation", GAP)
+	_vbox.add_child(_hosts_box)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	_ip_edit = _make_edit("192.168.x.x", 15, 200)
+	var ed := _ip_edit
+	_ip_edit.text = str(GameSettings.load_all().get("last_host", ""))
+	_edit_dirty = false
+	_ip_edit.text_changed.connect(func(_t: String): _edit_dirty = true)
+	_ip_submit = func(): _connect_to(ed.text.strip_edges())
+	_ip_edit.text_submitted.connect(func(_t: String): _ip_submit.call())
+	row.add_child(_ip_edit)
+	var go := _button("Connect", func(): _ip_submit.call())
+	go.custom_minimum_size = Vector2(120, BTN_H)
+	row.add_child(go)
+	_vbox.add_child(row)
+	_vbox.add_child(_button("Back", func():
+		duel.leave()
+		_show_screen(Screen.NETMENU), true))
+	_fill_hosts(false)
+
+## The hosts found so far, refilled in place: a rebuild would reset the address
+## field the player may be typing in. A host showing up while nothing was typed
+## gets the focus (gamepad / keyboard: one press to join).
+func _fill_hosts(focus_first: bool) -> void:
+	if _hosts_box == null or not is_instance_valid(_hosts_box):
+		return
+	for c in _hosts_box.get_children():
+		_hosts_box.remove_child(c)
+		c.queue_free()
+	_hosts_hint.visible = _found.is_empty()
+	for ip in _found:
+		_hosts_box.add_child(_button("%s  (%s)" % [_found[ip], ip], _connect_to.bind(ip)))
+	if focus_first and not _edit_dirty and _hosts_box.get_child_count() > 0:
+		_hosts_box.get_child(0).grab_focus.call_deferred()
+	_recenter_panel.call_deferred()
+
+func _connect_to(ip: String) -> void:
+	if ip == "" or duel == null:
+		return
+	var c := GameSettings.load_all()
+	c["last_host"] = ip
+	GameSettings.save(c)
+	set_meta("net_ip", ip)
+	if duel.join_lan(ip) != OK:
+		show_info("LAN / WI-FI", "Could not connect to %s.\nHost PC: allow UDP 47110-47111 - or use Online." % ip)
+		return
+	_show_screen(Screen.NETWAIT)
+
+func _build_netwait() -> void:
+	_vbox.add_child(_heading("CONNECTING"))
+	var t: String = get_meta("net_ip", "")
+	_vbox.add_child(_hint("to the game %s ... This can take up to 15 seconds." % (t if t.begins_with("room") else "at " + t)))
+	_vbox.add_child(_button("Cancel", _cancel_net, true))
+
+## The duel's own game-over: both scores, the round result once both games are
+## over, the tally of rounds, Rematch / Leave. No high-score entry — the two
+## sides can play different settings only through the host, but a duel is
+## about beating the other player, not the list (same convention as tetris'
+## versus rounds).
+func _build_gameover_duel() -> void:
+	_duel_head = _heading("GAME OVER")
+	_vbox.add_child(_duel_head)
+	var mine := Label.new()
+	mine.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mine.add_theme_font_size_override("font_size", 20)
+	mine.add_theme_color_override("font_color", Color.WHITE)
+	mine.text = "YOU    %06d    ·    WAVE %d" % [duel.my_score, duel.my_wave]
+	_vbox.add_child(mine)
+	_duel_opp = Label.new()
+	_duel_opp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_duel_opp.add_theme_font_size_override("font_size", 20)
+	_duel_opp.add_theme_color_override("font_color", Color.WHITE)
+	_vbox.add_child(_duel_opp)
+	_duel_note = _hint("")
+	_duel_note.add_theme_color_override("font_color", UiStyle.ACCENT)
+	_vbox.add_child(_duel_note)
+	_duel_tally = _hint("")
+	_vbox.add_child(_duel_tally)
+	_vbox.add_child(_spacer(6))
+	_duel_btn = _button("Rematch", func():
+		duel.want_rematch())
+	_vbox.add_child(_duel_btn)
+	_vbox.add_child(_button("Leave game", func():
+		hide_all()
+		quit_to_menu_pressed.emit()))
+	_refresh_duel_gameover()
+
+## Updates the duel game-over screen in place (the opponent's numbers arrive
+## several times a second — a rebuild would reset focus and flicker).
+func _refresh_duel_gameover() -> void:
+	if screen != Screen.GAMEOVER or _duel_head == null or not is_instance_valid(_duel_head) or duel == null:
+		return
+	var res := duel.result()
+	_duel_head.text = ["GAME OVER", "YOU WIN!", "YOU LOSE", "DRAW!"][res]
+	_duel_opp.text = "OPP    %06d    ·    WAVE %d" % [duel.opp_score, duel.opp_wave]
+	_duel_note.text = "Your opponent is still playing ..." if res == 0 else ""
+	_duel_tally.text = "Rounds:  You %d : %d Opponent%s" % [duel.wins, duel.losses,
+		("   (%d draw)" % duel.draws) if duel.draws > 0 else ""]
+	var was_disabled := _duel_btn.disabled
+	if res == 0:
+		_duel_btn.disabled = true
+		_duel_btn.text = "Rematch"
+	elif duel.rematch_wanted():
+		_duel_btn.disabled = true
+		_duel_btn.text = "Waiting for opponent ..."
+	else:
+		_duel_btn.disabled = false
+		_duel_btn.text = "Rematch"
+		if was_disabled:
+			_duel_btn.grab_focus.call_deferred()
 
 # ---------------------------------------------------------- high scores --
 func _build_highscores() -> void:
@@ -651,6 +975,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Hall of Fame name entry: a LineEdit only submits on Enter/Kp-Enter (its
 	# own internal check), never on the generic ui_accept a gamepad's A sends.
 	if event.is_action_pressed("ui_accept"):
+		if _ip_edit != null and is_instance_valid(_ip_edit) and _ip_edit.has_focus() and _ip_submit.is_valid():
+			_ip_submit.call()
+			get_viewport().set_input_as_handled()
+			return
 		for e in _name_edits:
 			if is_instance_valid(e) and e.has_focus():
 				_commit_score()

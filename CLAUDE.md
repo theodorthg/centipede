@@ -338,6 +338,70 @@ gerastert, in `menus.gd::_build_help()` per `TextureRect`
   `spider-kill`/`scorpion-kill`/`flea-kill` in `sound_manager.gd`, aufgerufen
   aus denselben `_bullet_vs_*()`-Stellen in `game.gd`) — keine Änderung nötig.
 
+## Mehrspieler (Stand 2026-10-05)
+
+Play öffnet einen **PLAYERS**-Bildschirm wie bei mario-clone: *1 Player*,
+*2 Players - take turns*, *2 Players - LAN / Wi-Fi* (nur nativ, UDP), *2
+Players - Online* (Relay, auch im Browser).
+
+- **Abwechselnd an einem Gerät** (`game.gd`, `Mode.TURNS`): jeder Spieler hat
+  eigenes Pilzfeld, eigene Centipede-Ketten, Punkte, Leben, Welle,
+  Extraleben-Schwelle — wie am Automaten. Der AKTIVE Spieler lebt in den
+  Membern `_score`/`_lives`/`_wave`/… plus den Nodes auf dem Feld;
+  `_slots[i]` (Dictionary je Spieler) wird nur beim Wechsel aktualisiert
+  (`_park_slot()` sichert Pilze [Zelle, hp, vergiftet] und
+  `CentipedeChain.snapshot()` je Kette; `_load_slot()` baut das Feld wieder
+  auf, `restore()` stellt die Ketten exakt her). Der Zug geht bei jedem
+  Lebensverlust weiter (`_hand_over()`, Banner „PLAYER n / GET READY!",
+  zweizeilig); ein Spieler ohne Leben wird übersprungen, ist keiner mehr am
+  Leben → Game Over mit beiden Ständen + Sieger + je einem Namensfeld
+  (`menus.gd::_commit_score()` trägt alle qualifizierenden Scores ein, leeres
+  Feld = „P1"/„P2"). HUD: zweite Zeile + Reserve des Wartenden. Gegner/
+  Geschosse werden beim Wechsel verworfen, nur Pilze + Ketten bleiben.
+- **Pilzfeld pro Welle per Seed** (`_scatter_mushrooms()`: `_field_seed`,
+  `_wave_rng`) — bei gleichem Seed gleiches Feld (Voraussetzung fürs Duell).
+- **Duell auf zwei Geräten** (`duel.gd`, `class_name Duel`, Kind von `Game`;
+  `net_link.gd` = NetLink aus tetris mit Kennung `centipede`, Discovery-Tag
+  `CENTIPEDE-LAN-1`, gemeinsame Ports 47110–47112, Relay
+  `application/config/relay_url` = `wss://broesel.net/mario-relay`, Override
+  per Umgebungsvariable `CENTIPEDE_RELAY` oder `settings.cfg` [game]
+  `relay_url`): **jedes Gerät rechnet sein EIGENES Spiel, gleichzeitig** —
+  gleicher Seed (gleiche Felder), die Einstellungen des Hosts (Leben,
+  Bewegungszone, Schwierigkeit, Extraleben) gelten für beide; Punkte/Leben/
+  Welle des Gegners kommen live (`st`, ≤ 5/s) ins HUD („OPP 001200 W3",
+  Reserve unten rechts). Wer am Ende mehr Punkte hat, gewinnt (Gleichstand =
+  Draw); beide fertig → Ergebnis + Rundenstand („You 2 : 1 Opponent") +
+  Rematch (Host startet, wenn beide wollen). **Keine Bestenlisten-Einträge**
+  im Duell (Serien-Konvention: Versus-Runden = keiner). Protokoll:
+  `hello {v}` → Host schickt `start {seed, cfg}` → `st {s,l,w}` →
+  `over {s,w}` → `again` / `bye`; Major.Minor der Version muss gleich sein.
+  Pause im Duell nur lokal (kein Restart/Settings im Menü, „Leave game").
+  Verlässt jemand das Duell, zeigt der andere einen INFO-Bildschirm.
+- **Timeouts**: Verbindungsaufbau gibt nach `Duel.CONNECT_TIMEOUT` = 15 s
+  auf (Wartebildschirm sagt „up to 15 seconds"; LAN → „No answer from …" +
+  Firewall-Hinweis, online → „server did not answer"); ENet-Peers geben
+  nach 8–15 s Funkstille auf (`NetLink.TIMEOUT_*_MS`), damit kurzes
+  Handy-Stocken kein Spielende ist. Ein wartender Host (Raum offen / LAN)
+  wartet beliebig lange bis „Cancel".
+- **Menüs** (`menus.gd`): `PLAYERS`, `NETMENU`, `ONLINEMENU`, `ONLINEJOIN`
+  (Code eingeben, `ui_accept` im Feld abgefangen), `NETHOST` (Raumcode bzw.
+  LAN-Adressen), `NETJOIN` (gefundene Hosts als Knöpfe, **in-place
+  aktualisiert** — ein Rebuild würde das Adressfeld leeren —, plus Adressfeld
+  mit `last_host`), `NETWAIT`, `INFO`; Duell-Game-Over aktualisiert seine
+  Labels in place (`_refresh_duel_gameover()`), Rematch-Knopf bekommt den
+  Fokus, sobald der Gegner fertig ist. Hilfeseiten `players` + `network`
+  (`assets/help_src/*.svg`) in beiden Folgen.
+- **Android**: `permissions/internet=true` (vorher false — ohne das kein
+  Online-Spiel).
+- **Testen ohne zweites Gerät**: `tools/duel_test.gd` (Protokolltest, Host +
+  Gast als zwei `Duel`-Nodes in EINEM Prozess; `-- online ws://127.0.0.1:8765`
+  für den Relay-Weg), `tools/duelbot.gd` (Gast bzw. Host als kompletter
+  Headless-Spieler gegen ein echtes Fenster: `lan 127.0.0.1`, `online CODE
+  [url]`, `hostlan`, `hostonline - [url]`; der Bot entfernt die
+  godot-mcp-pro-Autoloads, sonst kapert er die MCP-Screenshots), lokaler
+  Relay: `cd ../mario-clone/server && PORT=8765 node relay.js`, Editor dafür
+  mit `CENTIPEDE_RELAY=ws://127.0.0.1:8765` starten.
+
 ## Ports
 
 Web-Testserver: **8097** (`.claude/launch.json`, `centipede-web`) — nächster

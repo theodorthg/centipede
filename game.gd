@@ -73,6 +73,9 @@ var _slots: Array[Dictionary] = []
 var _cur := 0
 var _field_seed := 0
 var _wave_rng := RandomNumberGenerator.new()
+var _duel: Duel
+var _duel_cfg := {}
+var _duel_seed := 0
 var _cfg := {}
 var _touch := false
 var _paused := false
@@ -120,6 +123,13 @@ func _ready() -> void:
 
 	_touch_controls.fire_down.connect(func(): _player.fire_held = true)
 	_touch_controls.fire_up.connect(func(): _player.fire_held = false)
+
+	_duel = Duel.new()
+	add_child(_duel)
+	_duel.round_started.connect(_on_duel_round)
+	_duel.opponent_changed.connect(_refresh_duel_hud)
+	_duel.ended.connect(_on_duel_ended)
+	_menus.set_duel(_duel)
 
 	_menus.play_pressed.connect(_on_play)
 	_menus.resume_pressed.connect(_resume)
@@ -181,6 +191,10 @@ func _apply_settings(cfg: Dictionary) -> void:
 ## press_start: after the splash, show only the cover art (its own "PRESS
 ## START") and open the start menu on the first key / button / click / tap.
 func _to_title(press_start := false) -> void:
+	if _duel.is_active():
+		_duel.leave()
+	_mode = Mode.SOLO
+	_menus.duel_game = false
 	_state = State.TITLE
 	_title_art.visible = true
 	get_tree().paused = false
@@ -206,16 +220,41 @@ func _on_play(players: int) -> void:
 	_mode = Mode.TURNS if players == 2 else Mode.SOLO
 	_start_game()
 
+## A round of the two-device duel begins (both devices get this at once, the
+## host's settings and field seed attached).
+func _on_duel_round(seed: int, cfg: Dictionary) -> void:
+	_mode = Mode.DUEL
+	_duel_seed = seed
+	_duel_cfg = cfg
+	_menus.hide_all()
+	_start_game()
+
+func _on_duel_ended(text: String) -> void:
+	_to_title(false)
+	_menus.show_info("2 PLAYERS", text)
+
+func _duel_report() -> void:
+	if _mode == Mode.DUEL:
+		_duel.report(_score, _lives, _wave)
+
+func _refresh_duel_hud() -> void:
+	if _mode != Mode.DUEL:
+		return
+	var tail := "  DONE" if _duel.opp_over else "  W%d" % _duel.opp_wave
+	_hud.set_other("OPP  %06d%s" % [_duel.opp_score, tail])
+	_hud.set_other_lives("OPP", _duel.opp_lives)
+
 func _start_game() -> void:
 	_title_art.visible = false
 	_await_start = false
-	_cfg = GameSettings.load_all()
+	_cfg = _duel_cfg if _mode == Mode.DUEL else GameSettings.load_all()
+	_menus.duel_game = _mode == Mode.DUEL
 	_score = 0
 	_lives = _cfg.lives
 	_wave = 1
 	_next_extra = _cfg.extra_life if _cfg.extra_life > 0 else 0
 	_cur = 0
-	_field_seed = randi()
+	_field_seed = _duel_seed if _mode == Mode.DUEL else randi()
 	_slots.clear()
 	if _mode == Mode.TURNS:
 		for i in 2:
@@ -234,6 +273,7 @@ func _start_game() -> void:
 	get_tree().paused = false
 	_paused = false
 	_reset_enemy_timers()
+	_duel_report()
 	_snd_play("get-ready")
 	_begin_transition("PLAYER 1\nGET READY!" if _mode == Mode.TURNS else "GET READY!",
 		READY_DELAY, _finish_start)
@@ -254,6 +294,8 @@ func _refresh_hud() -> void:
 		var o: Dictionary = _slots[1 - _cur]
 		_hud.set_other("P%d  %06d" % [2 - _cur, int(o.score)])
 		_hud.set_other_lives("P%d" % (2 - _cur), int(o.lives))
+	elif _mode == Mode.DUEL:
+		_refresh_duel_hud()
 	else:
 		_hud.set_other("")
 		_hud.set_other_lives("", -1)
@@ -604,6 +646,7 @@ func _kill_player() -> void:
 	_snd_play("player-death")
 	_lives -= 1
 	_hud.set_lives(_lives)
+	_duel_report()
 	var other_alive := _mode == Mode.TURNS and int(_slots[1 - _cur].lives) > 0
 	if _lives <= 0 and not other_alive:
 		_player.alive = false
@@ -703,6 +746,7 @@ func _check_wave_clear() -> void:
 func _finish_wave_clear() -> void:
 	_wave += 1
 	_hud.set_wave(_wave)
+	_duel_report()
 	_spawn_wave()
 	_player.input_enabled = true
 
@@ -721,6 +765,7 @@ func _begin_transition(text: String, duration: float, on_done: Callable) -> void
 func _add_score(n: int) -> void:
 	_score += n
 	_hud.set_score(_score)
+	_duel_report()
 	if _next_extra > 0 and _score >= _next_extra:
 		_lives = mini(_lives + 1, 99)
 		_hud.set_lives(_lives)
@@ -735,6 +780,9 @@ func _game_over() -> void:
 		_menus.show_gameover({"mode": "turns",
 			"scores": [int(_slots[0].score), int(_slots[1].score)],
 			"waves": [int(_slots[0].wave), int(_slots[1].wave)]})
+	elif _mode == Mode.DUEL:
+		_duel.finish(_score, _wave)
+		_menus.show_gameover({"mode": "duel", "scores": [_score], "waves": [_wave]})
 	else:
 		_menus.show_gameover({"mode": "solo", "scores": [_score], "waves": [_wave]})
 

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="900" height="980" viewBox="0 0 900 980" font-family="DejaVu Sans, 'Liberation Sans', sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a140a"/><stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#39ff14"/>
+    </marker>
+    <!-- a tiny mushroom field: three mushrooms and a centipede -->
+    <g id="field">
+      <rect width="190" height="240" rx="10" fill="#000" stroke="#39ff14" stroke-width="3"/>
+      <circle cx="40" cy="60" r="11" fill="#39ff14" stroke="#f2fff2" stroke-width="1.5"/>
+      <circle cx="140" cy="90" r="11" fill="#39ff14" stroke="#f2fff2" stroke-width="1.5"/>
+      <circle cx="80" cy="140" r="11" fill="#39ff14" stroke="#f2fff2" stroke-width="1.5"/>
+      <circle cx="160" cy="170" r="11" fill="#39ff14" stroke="#f2fff2" stroke-width="1.5"/>
+      <circle cx="58" cy="26" r="8" fill="#f2fff2"/><circle cx="76" cy="26" r="8" fill="#f2fff2"/>
+      <circle cx="94" cy="26" r="8" fill="#f2fff2"/><circle cx="112" cy="26" r="8" fill="#39ff14"/>
+      <path d="M95 226 L104 206 L95 211 L86 206 z" fill="#f2fff2" stroke="#39ff14" stroke-width="1.5"/>
+    </g>
+  </defs>
+  <rect width="900" height="980" fill="url(#bg)"/>
+  <rect x="14" y="14" width="872" height="952" rx="18" fill="none" stroke="#39ff14" stroke-opacity="0.25" stroke-width="2"/>
+
+  <text x="450" y="76" text-anchor="middle" font-size="46" font-weight="700" fill="#39ff14" letter-spacing="4">2 PLAYERS</text>
+  <rect x="330" y="94" width="240" height="4" rx="2" fill="#39ff14"/>
+
+  <!-- 1: take turns -->
+  <text x="60" y="160" font-size="32" font-weight="700" fill="#f2fff2">Take turns — one device</text>
+  <text x="60" y="196" font-size="22" fill="#8fcf8f">Play &gt; 2 Players - take turns</text>
+
+  <g transform="translate(120 230)">
+    <use xlink:href="#field"/>
+    <text x="95" y="-12" text-anchor="middle" font-size="26" font-weight="700" fill="#39ff14">P1</text>
+  </g>
+  <g transform="translate(590 230)">
+    <use xlink:href="#field"/>
+    <text x="95" y="-12" text-anchor="middle" font-size="26" font-weight="700" fill="#f2fff2">P2</text>
+  </g>
+  <path d="M335 300 L575 300" stroke="#39ff14" stroke-width="5" fill="none" marker-end="url(#arr)"/>
+  <path d="M575 400 L335 400" stroke="#39ff14" stroke-width="5" fill="none" marker-end="url(#arr)"/>
+  <text x="455" y="284" text-anchor="middle" font-size="22" fill="#8fcf8f">a life is lost</text>
+  <text x="455" y="436" text-anchor="middle" font-size="22" fill="#8fcf8f">and back again</text>
+
+  <text x="60" y="520" font-size="24" fill="#8fcf8f">Each player has their own field, centipede, score,</text>
+  <text x="60" y="554" font-size="24" fill="#8fcf8f">lives and wave — like the arcade cabinet.</text>
+  <text x="60" y="588" font-size="24" fill="#8fcf8f">Out of lives? The other one plays on alone.</text>
+
+  <rect x="60" y="624" width="780" height="2" fill="#39ff14" fill-opacity="0.25"/>
+
+  <!-- 2: duel -->
+  <text x="60" y="682" font-size="32" font-weight="700" fill="#f2fff2">Duel — two devices</text>
+  <text x="60" y="718" font-size="22" fill="#8fcf8f">Play &gt; 2 Players - LAN / Wi-Fi  or  Online</text>
+
+  <g transform="translate(120 748) scale(0.7)">
+    <use xlink:href="#field"/>
+  </g>
+  <text x="188" y="935" text-anchor="middle" font-size="22" font-weight="700" fill="#39ff14">YOU 003400</text>
+  <g transform="translate(500 748) scale(0.7)">
+    <use xlink:href="#field"/>
+  </g>
+  <text x="568" y="935" text-anchor="middle" font-size="22" font-weight="700" fill="#f2fff2">OPP 002100</text>
+  <path d="M270 840 L490 840" stroke="#39ff14" stroke-width="4" stroke-dasharray="10 8" fill="none" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="380" y="826" text-anchor="middle" font-size="22" fill="#8fcf8f">live</text>
+
+  <text x="660" y="790" font-size="22" fill="#8fcf8f">Both play at</text>
+  <text x="660" y="820" font-size="22" fill="#8fcf8f">the same time</text>
+  <text x="660" y="850" font-size="22" fill="#8fcf8f">on the same</text>
+  <text x="660" y="880" font-size="22" fill="#8fcf8f">fields. Higher</text>
+  <text x="660" y="910" font-size="22" fill="#8fcf8f">score wins.</text>
+</svg>
