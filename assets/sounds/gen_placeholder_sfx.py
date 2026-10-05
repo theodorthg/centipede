@@ -183,6 +183,14 @@ def build():
     )
     sounds["menu-music"] = pad
 
+    # DDT bomb: a deep boom with a noise crack — added LAST so the random
+    # sequence of every sound above (and thus their files) stays unchanged
+    sounds["ddt-blast"] = mix(
+        noise_burst(0.55, amp=0.5, decay=2.6),
+        sine_sweep(140, 35, 0.5, amp=0.45),
+        square_sweep(300, 60, 0.18, amp=0.12),
+    )
+
     return sounds
 
 

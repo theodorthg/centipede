@@ -177,9 +177,8 @@ Material vom Nutzer, kein Implementierungs-Blocker:
   (das Wurzelverzeichnis, nicht `assets/graphics/help/`) ist leer angelegt
   für spätere Sprites. Die Hilfe-Illustrationen selbst sind davon **nicht**
   mehr betroffen — siehe unten.
-- **Mushroom-Feld wird pro Welle komplett neu gestreut**, statt (wie im
-  Original) überlebende Pilze aus der Vorwelle zu behalten. Bewusste
-  Vereinfachung fürs MVP.
+- ~~Mushroom-Feld wird pro Welle komplett neu gestreut~~ — erledigt
+  2026-10-05, siehe „Wellen & Extras" unten (Feld bleibt, Regrow-Bonus).
 
 ## Menüs, Navigation & Hall of Fame (Stand 2026-09-17)
 
@@ -337,6 +336,47 @@ gerastert, in `menus.gd::_build_help()` per `TextureRect`
   für Hits dieser Items existierten bereits vorher (`segment-kill`/
   `spider-kill`/`scorpion-kill`/`flea-kill` in `sound_manager.gd`, aufgerufen
   aus denselben `_bullet_vs_*()`-Stellen in `game.gd`) — keine Änderung nötig.
+
+## Wellen & Extras (Stand 2026-10-05, `waves.gd`)
+
+Alle Wellen-Regeln stehen als reine Funktionen in `waves.gd`
+(`class_name Waves`, per `_selftest.gd` geprüft):
+
+- **Das Pilzfeld bleibt von Welle zu Welle** (wie im Original; vorher wurde
+  es pro Welle komplett neu gestreut). `game.gd::_spawn_wave()` füllt nur
+  auf: Welle 1 baut `MUSHROOM_BASE_COUNT` = 32 Pilze, jede weitere
+  `WAVE_ADD_MUSHROOMS` = 6 (gedeckelt bei `MUSHROOM_CAP` = 72). Neues Feld
+  gibt es nur bei neuem Spiel bzw. frischem Spieler-Slot (`_clear_field()`).
+- **Regrow-Bonus**: während „CLEARED!" läuft, wachsen alle beschädigten oder
+  vergifteten Pilze von oben nach unten wieder nach, je
+  `REGROW_SCORE` = 5 Punkte (`_begin_regrow()`/`_heal_tick()`/
+  `_flush_regrow()`; Tempo so gewählt, dass es in ~1,3 s fertig ist, Rest
+  wird am Ende des Banners nachgeholt; `mushroom-hit`-Sound jedes 4. Pilzes).
+- **Wellenaufbau wie im Original**: Welle n hat eine um n−1 Segmente kürzere
+  Hauptkette (12 − n + 1, mindestens 4) plus n−1 (höchstens
+  `MAX_EXTRA_HEADS` = 8) **Einzelköpfe**, die nacheinander von links in
+  Reihe 0 einlaufen (`_pending_heads`/`_head_t`: erster nach 3 s, dann alle
+  2 s). Gesamtzahl der Segmente bleibt 12 — mehr Köpfe (je 100 Punkte), nicht
+  mehr Treffer. Eine Welle ist erst geklärt, wenn auch alle wartenden Köpfe
+  eingelaufen und erledigt sind (`_check_wave_clear()`).
+- **DDT-Bomben** (Millipede): `Mushroom.make_ddt()`, amberfarbenes Fass
+  „DDT" (ein Schuss löst aus; nie vergiftet/geheilt/vom Spinne gefressen).
+  Pro Welle werden bis `ddt_target(wave)` Bomben ins Feld gesetzt (1 ab
+  Welle 1, +1 alle 3 Wellen, max. 3 — Reihen 4 bis ROWS−10, also über der
+  Spielerzone). `game.gd::_detonate()`: alles im `BLAST_RADIUS` = 2,6 Zellen
+  fliegt weg — Pilze (andere Bomben lösen der Reihe nach aus), Kettenglieder
+  (Kopf 100 / Rumpf 10 nach dem Zustand VOR dem Knall, kein Pilz bleibt
+  zurück; Ketten splitten dabei korrekt), Spinne/Floh/Skorpion mit ihren
+  üblichen Punkten, ein Sammel-Punkte-Popup; der Spieler wird nie verletzt.
+  Effekt `blast.gd` (wachsender Ring), Sound `ddt-blast`
+  (Platzhalter aus `gen_placeholder_sfx.py`, am Ende der Skript-Reihenfolge,
+  damit die älteren WAVs byte-identisch bleiben).
+- Im Abwechsel-Modus gehören DDT-Flag und wartende Köpfe zum gesicherten
+  Spielerzustand (`_park_slot()`/`_load_slot()`). Hilfeseite „Waves & Extras"
+  (`assets/help_src/extras.svg`).
+- **Bewusst NICHT gebaut**: Farbwechsel pro Welle (würde das Giftgrün-
+  Farbschema aufweichen), Ohrwurm/Biene (die Flea deckt die Biene ab),
+  Spielstand/Continue (Arcade-Spiel), Coop in einem Feld (siehe TODO.md).
 
 ## Mehrspieler (Stand 2026-10-05)
 

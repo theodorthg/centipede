@@ -11,7 +11,6 @@ extends Node2D
 const DESIGN_WIDTH := FieldGrid.DESIGN_WIDTH
 const DESIGN_HEIGHT := FieldGrid.DESIGN_HEIGHT
 const INITIAL_SEGMENTS := 12
-const MUSHROOM_BASE_COUNT := 32
 const SPIDER_INTERVAL_MIN := 9.0
 const SPIDER_INTERVAL_MAX := 17.0
 ## Flea: replenishes cover once the player's own movement zone runs thin —
@@ -94,6 +93,13 @@ var _scorpion: Scorpion = null
 var _scorpion_t := 0.0
 var _transition_t := 0.0
 var _transition_done: Callable
+## Waves.extra_heads(): single heads still to enter this wave, and the time until the next one.
+var _pending_heads := 0
+var _head_t := 0.0
+## Damaged mushrooms still to regrow during the "CLEARED!" banner (see _begin_regrow()).
+var _heal_queue: Array[Vector2i] = []
+var _heal_t := 0.0
+var _heal_interval := 0.05
 
 var _last_window_size := Vector2i.ZERO
 var _cabinet_cam: Camera2D
@@ -260,7 +266,7 @@ func _start_game() -> void:
 		for i in 2:
 			_slots.append({"score": 0, "lives": _cfg.lives, "wave": 1, "fresh": true,
 				"next_extra": _next_extra, "seed": _field_seed if i == 0 else randi(),
-				"auto": false, "mush": [], "chains": []})
+				"auto": false, "mush": [], "chains": [], "pending": 0, "head_t": 0.0})
 	_hud_layer.visible = true
 	_touch_controls.visible = _touch
 	_refresh_hud()
@@ -308,16 +314,19 @@ func _spawn_point() -> Vector2:
 	return Vector2(DESIGN_WIDTH * 0.5,
 		FieldGrid.FIELD_TOP + FieldGrid.ROWS * FieldGrid.CELL - FieldGrid.CELL * 0.5)
 
+## The mushroom field is KEPT from wave to wave (like the original — see
+## Waves); a new wave only tops it up and makes sure the DDT bombs are in.
+## Wave 1 / a fresh player start from an empty field (_clear_field()).
 func _spawn_wave() -> void:
 	_wave_auto_cleared = false
-	_clear_mushrooms()
 	_scatter_mushrooms()
+	_place_ddt()
 	_spawn_centipede()
 
 ## Seeded per (field seed, wave): both devices of a duel get the same field.
 func _scatter_mushrooms() -> void:
 	_wave_rng.seed = _field_seed * 1000003 + _wave * 7919
-	var count: int = MUSHROOM_BASE_COUNT + (_wave - 1) * 2
+	var count := Waves.mushrooms_to_add(_wave, _mushrooms.size())
 	var placed := 0
 	var attempts := 0
 	while placed < count and attempts < count * 25:
@@ -330,23 +339,60 @@ func _scatter_mushrooms() -> void:
 		_add_mushroom(col, row)
 		placed += 1
 
+func _place_ddt() -> void:
+	var have := 0
+	for m in _mushrooms.values():
+		if m.ddt:
+			have += 1
+	var want := Waves.ddt_target(_wave)
+	var tries := 0
+	while have < want and tries < 200:
+		tries += 1
+		var col := _wave_rng.randi_range(1, FieldGrid.COLS - 2)
+		var row := _wave_rng.randi_range(4, FieldGrid.ROWS - 10)
+		var key := Vector2i(col, row)
+		if _mushrooms.has(key):
+			continue
+		_add_mushroom(col, row)
+		_mushrooms[key].make_ddt()
+		have += 1
+
 func _add_mushroom(col: int, row: int) -> void:
 	var m: Mushroom = MushroomScene.instantiate()
 	add_child(m)
 	m.setup(col, row)
 	_mushrooms[Vector2i(col, row)] = m
 
+func _chain_interval() -> float:
+	var interval: float = GameSettings.tick_interval(_cfg.difficulty) * pow(0.93, _wave - 1)
+	return maxf(interval, 0.045)
+
+## The wave's main train; the rest of the segments follow as single heads
+## (_pending_heads, see Waves.extra_heads()).
 func _spawn_centipede() -> void:
+	var n := Waves.main_length(INITIAL_SEGMENTS, _wave)
 	var segs: Array[CentipedeSegment] = []
-	for i in range(INITIAL_SEGMENTS):
+	for i in range(n):
 		var s: CentipedeSegment = SegmentScene.instantiate()
 		add_child(s)
 		segs.append(s)
 	var chain := CentipedeChain.new()
 	chain.blocked = _cell_blocked
 	chain.poisoned = _cell_poisoned
-	var interval: float = GameSettings.tick_interval(_cfg.difficulty) * pow(0.93, _wave - 1)
-	chain.setup(segs, FieldGrid.COLS - 1, 0, -1, maxf(interval, 0.045))
+	chain.setup(segs, FieldGrid.COLS - 1, 0, -1, _chain_interval())
+	_chains.append(chain)
+	_pending_heads = Waves.extra_heads(_wave)
+	_head_t = Waves.HEAD_FIRST_DELAY
+
+## A single head entering from the left of the top row, heading right.
+func _spawn_lone_head() -> void:
+	var seg: CentipedeSegment = SegmentScene.instantiate()
+	add_child(seg)
+	var segs: Array[CentipedeSegment] = [seg]
+	var chain := CentipedeChain.new()
+	chain.blocked = _cell_blocked
+	chain.poisoned = _cell_poisoned
+	chain.setup(segs, 0, 0, 1, _chain_interval())
 	_chains.append(chain)
 
 func _cell_blocked(col: int, row: int) -> bool:
@@ -362,6 +408,8 @@ func _is_blocked_at(pos: Vector2) -> bool:
 
 func _clear_field() -> void:
 	_hud.hide_banner()
+	_pending_heads = 0
+	_heal_queue.clear()
 	_clear_mushrooms()
 	for c in _chains:
 		c.free_all()
@@ -400,6 +448,7 @@ func _process(delta: float) -> void:
 
 	if _state == State.TRANSITION:
 		if not _paused:
+			_heal_tick(delta)
 			_transition_t -= delta
 			if _transition_t <= 0.0:
 				var done := _transition_done
@@ -415,6 +464,13 @@ func _process(delta: float) -> void:
 		chain.step(delta)
 		if chain.is_stuck():
 			_auto_clear_stuck_head(chain)
+
+	if _pending_heads > 0:
+		_head_t -= delta
+		if _head_t <= 0.0:
+			_spawn_lone_head()
+			_pending_heads -= 1
+			_head_t = Waves.HEAD_INTERVAL
 
 	if not is_instance_valid(_spider):
 		_spider_t -= delta
@@ -519,8 +575,11 @@ func _bullet_vs_mushroom(b: Node2D) -> bool:
 	if destroyed:
 		_mushrooms.erase(key)
 		m.queue_free()
-		_add_score(1)
-		_snd_play("mushroom-break")
+		if m.ddt:
+			_detonate(key)
+		else:
+			_add_score(1)
+			_snd_play("mushroom-break")
 	else:
 		_snd_play("mushroom-hit")
 	return true
@@ -610,6 +669,75 @@ func _bullet_vs_scorpion(b: Node2D) -> bool:
 	_snd_play("scorpion-kill")
 	return true
 
+## A DDT bomb went off at `center`: everything within Waves.BLAST_RADIUS cells
+## goes — mushrooms (other bombs set off in turn), centipede segments (head
+## 100 / body 10, like a bullet hit, but no mushroom is left behind), spider,
+## flea and scorpion (their usual points). The player is never hurt by it.
+func _detonate(center: Vector2i) -> void:
+	_snd_play("ddt-blast")
+	var origin := FieldGrid.cell_to_pixel(center.x, center.y)
+	var fx := Blast.new()
+	add_child(fx)
+	fx.position = origin
+	var pts := 0
+	var chain_reaction: Array[Vector2i] = []
+	for k in _mushrooms.keys():
+		if Waves.in_blast(center, k):
+			var m: Mushroom = _mushrooms[k]
+			_mushrooms.erase(k)
+			m.queue_free()
+			if m.ddt:
+				chain_reaction.append(k)
+			else:
+				pts += 1
+	# who was a head BEFORE the blast: hit() promotes the next segment to head,
+	# but all of this goes off at once — a head pays 100, a body segment 10
+	var heads := {}
+	for c in _chains:
+		for sg in c.segments:
+			if is_instance_valid(sg) and sg.is_head:
+				heads[sg] = true
+	var work: Array[CentipedeChain] = _chains.duplicate()
+	while not work.is_empty():
+		var chain: CentipedeChain = work.pop_back()
+		while true:
+			var idx := -1
+			for i in range(chain.segments.size()):
+				var seg: CentipedeSegment = chain.segments[i]
+				if is_instance_valid(seg) and Waves.in_blast(center, Vector2i(seg.col, seg.row)):
+					idx = i
+					break
+			if idx < 0:
+				break
+			var was_head: bool = heads.has(chain.segments[idx])
+			var result: Dictionary = chain.hit(idx)
+			pts += 100 if was_head else 10
+			if result.new_chain != null:
+				_chains.append(result.new_chain)
+				work.append(result.new_chain)
+			if result.empty:
+				_chains.erase(chain)
+				break
+	var radius_px: float = Waves.BLAST_RADIUS * FieldGrid.CELL
+	if is_instance_valid(_spider) and _spider.position.distance_to(origin) <= radius_px:
+		var sp := Spider.score_for_distance(_spider.position.distance_to(_player.position))
+		pts += sp
+		_spider.queue_free()
+		_spider = null
+	if is_instance_valid(_flea) and _flea.position.distance_to(origin) <= radius_px:
+		pts += FLEA_SCORE
+		_flea.queue_free()
+		_flea = null
+	if is_instance_valid(_scorpion) and _scorpion.position.distance_to(origin) <= radius_px:
+		pts += SCORPION_SCORE
+		_scorpion.queue_free()
+		_scorpion = null
+	if pts > 0:
+		_add_score(pts)
+		_spawn_score_popup(origin, pts)
+	for k in chain_reaction:
+		_detonate(k)
+
 func _add_mushroom_from_hit(cell: Vector2i) -> void:
 	if not _mushrooms.has(cell) and FieldGrid.in_bounds(cell.x, cell.y):
 		_add_mushroom(cell.x, cell.y)
@@ -689,8 +817,10 @@ func _park_slot() -> void:
 	var mush := []
 	for k in _mushrooms:
 		var m: Mushroom = _mushrooms[k]
-		mush.append([k.x, k.y, m.hp, m.poisoned])
+		mush.append([k.x, k.y, m.hp, m.poisoned, m.ddt])
 	sl.mush = mush
+	sl.pending = _pending_heads
+	sl.head_t = _head_t
 	var chains := []
 	for c in _chains:
 		chains.append(c.snapshot())
@@ -710,11 +840,15 @@ func _load_slot(i: int) -> void:
 	if sl.fresh:
 		_spawn_wave()
 		return
+	_pending_heads = int(sl.pending)
+	_head_t = float(sl.head_t)
 	for e in sl.mush:
 		_add_mushroom(int(e[0]), int(e[1]))
 		var m: Mushroom = _mushrooms[Vector2i(int(e[0]), int(e[1]))]
 		m.hp = int(e[2])
 		m.poisoned = bool(e[3])
+		if bool(e[4]):
+			m.make_ddt()
 		m.queue_redraw()
 	for cd in sl.chains:
 		var segs: Array[CentipedeSegment] = []
@@ -737,18 +871,54 @@ func _finish_respawn() -> void:
 ## "CLEARED!" banner + fanfare play, THEN advance the wave counter and spawn
 ## the next one.
 func _check_wave_clear() -> void:
-	if _chains.is_empty():
+	if _chains.is_empty() and _pending_heads == 0:
 		_player.input_enabled = false
 		_snd_play("wave-cleared")
 		var text := "AUTO-CLEARED!" if _wave_auto_cleared else "CLEARED!"
+		_begin_regrow()
 		_begin_transition(text, CLEARED_DELAY, _finish_wave_clear)
 
 func _finish_wave_clear() -> void:
+	_flush_regrow()
 	_wave += 1
 	_hud.set_wave(_wave)
 	_duel_report()
 	_spawn_wave()
 	_player.input_enabled = true
+
+## While "CLEARED!" is up every damaged or poisoned mushroom regrows, one after
+## the other from the top of the field, for Waves.REGROW_SCORE each (the
+## arcade's bonus for the field you leave behind).
+func _begin_regrow() -> void:
+	_heal_queue.clear()
+	var keys := _mushrooms.keys()
+	keys.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
+	for k in keys:
+		if _mushrooms[k].needs_heal():
+			_heal_queue.append(k)
+	_heal_interval = clampf(1.3 / maxf(_heal_queue.size(), 1.0), 0.02, 0.07)
+	_heal_t = 0.25
+
+func _heal_tick(delta: float) -> void:
+	if _heal_queue.is_empty():
+		return
+	_heal_t -= delta
+	while _heal_t <= 0.0 and not _heal_queue.is_empty():
+		_heal_t += _heal_interval
+		_regrow_one()
+
+func _regrow_one() -> void:
+	var cell: Vector2i = _heal_queue.pop_front()
+	if not _mushrooms.has(cell):
+		return
+	_mushrooms[cell].heal()
+	_add_score(Waves.REGROW_SCORE)
+	if _heal_queue.size() % 4 == 0:
+		_snd_play("mushroom-hit")
+
+func _flush_regrow() -> void:
+	while not _heal_queue.is_empty():
+		_regrow_one()
 
 ## Freezes all per-frame gameplay logic (chain ticks, enemy spawns,
 ## collisions — see the State.TRANSITION branch in _process()) for `duration`

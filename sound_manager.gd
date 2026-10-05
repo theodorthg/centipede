@@ -26,6 +26,7 @@ const SOUNDS := {
 	"spider-kill":    ["Spider killed", 50, 0.0],
 	"flea-kill":      ["Flea killed", 50, 0.0],
 	"scorpion-kill":  ["Scorpion killed", 50, 0.0],
+	"ddt-blast":      ["DDT blast", 50, 0.0],
 	"player-death":   ["Player destroyed", 50, 0.0],
 	"extra-life":     ["Extra life", 50, 0.0],
 	"get-ready":      ["Get ready", 50, 0.0],
@@ -34,7 +35,7 @@ const SOUNDS := {
 }
 const ORDER := [
 	"menu-music", "shoot", "mushroom-hit", "mushroom-break", "segment-kill",
-	"spider-kill", "flea-kill", "scorpion-kill", "player-death", "extra-life",
+	"spider-kill", "flea-kill", "scorpion-kill", "ddt-blast", "player-death", "extra-life",
 	"get-ready", "wave-cleared", "game-over",
 ]
 

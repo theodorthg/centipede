@@ -44,12 +44,14 @@ const HELP_DESKTOP := [
 	{"file": "players", "h": "2 Players"},
 	{"file": "network", "h": "LAN & Online"},
 	{"file": "goal", "h": "Goal & Scoring"},
+	{"file": "extras", "h": "Waves & Extras"},
 ]
 const HELP_TOUCH := [
 	{"file": "touch", "h": "Controls — Touch"},
 	{"file": "players", "h": "2 Players"},
 	{"file": "network", "h": "LAN & Online"},
 	{"file": "goal", "h": "Goal & Scoring"},
+	{"file": "extras", "h": "Waves & Extras"},
 ]
 
 var _panel: PanelContainer

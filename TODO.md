@@ -20,8 +20,11 @@ Ideen für später (Einschätzung 2026-10-03, noch nicht beauftragt):
 - [ ] Coop gleichzeitig: zwei Schützen in der Spielerzone. Mechanisch
       passt das gut (geteilte Tastatur / zwei Pads / Maus + Pad), Spinne
       zielt auf den nächsten. Mittlerer Nutzen.
-- [ ] Inhalt im Stil von Millipede: neue Gegner (Biene, Ohrwurm),
-      DDT-Bomben im Pilzfeld, wechselnde Farben/Themen pro Welle.
+- [x] 2026-10-05 Inhalt im Stil von Millipede: DDT-Bomben im Pilzfeld;
+      dazu Pilzfeld bleibt über Wellen (Regrow-Bonus) und Wellenaufbau wie im
+      Original (kürzere Kette + Einzelköpfe). Offen davon: neue Gegner
+      (Biene, Ohrwurm) und wechselnde Farben/Themen pro Welle — bewusst
+      nicht gebaut (siehe CLAUDE.md „Wellen & Extras").
 - Empfehlung: abwechselnd ja (billig); Coop nur, wenn Galaga-Coop schon
   steht (dieselben Bausteine).
 

@@ -157,6 +157,34 @@ func _init() -> void:
 	fails += _expect(NetLink.GAME == "centipede", "relay game tag is centipede")
 	fails += _expect(NetLink.TIMEOUT_MAX_MS <= 15000 and Duel.CONNECT_TIMEOUT <= 15.0, "connect timeouts are at most 15 s")
 
+	# --- wave rules (field kept, extra heads, DDT bombs) ---------------------
+	fails += _expect(Waves.extra_heads(1) == 0 and Waves.main_length(12, 1) == 12, "wave 1: one full train, no extra heads")
+	fails += _expect(Waves.extra_heads(2) == 1 and Waves.main_length(12, 2) == 11, "wave 2: 11-segment train + 1 single head")
+	fails += _expect(Waves.extra_heads(99) == Waves.MAX_EXTRA_HEADS and Waves.main_length(12, 99) == 12 - Waves.MAX_EXTRA_HEADS,
+		"extra heads are capped")
+	fails += _expect(Waves.mushrooms_to_add(1, 0) == Waves.MUSHROOM_BASE_COUNT, "wave 1 builds the whole field")
+	fails += _expect(Waves.mushrooms_to_add(3, 20) == Waves.WAVE_ADD_MUSHROOMS, "later waves only top the field up")
+	fails += _expect(Waves.mushrooms_to_add(3, Waves.MUSHROOM_CAP) == 0, "a full field gets nothing added")
+	fails += _expect(Waves.ddt_target(1) == 1 and Waves.ddt_target(4) == 2 and Waves.ddt_target(50) == Waves.MAX_DDT,
+		"DDT bombs: 1 from wave 1, one more every 3 waves, capped")
+	fails += _expect(Waves.in_blast(Vector2i(5, 5), Vector2i(7, 5)) and not Waves.in_blast(Vector2i(5, 5), Vector2i(8, 5)),
+		"blast reaches 2 cells straight, not 3")
+	fails += _expect(Waves.in_blast(Vector2i(5, 5), Vector2i(7, 6)) and not Waves.in_blast(Vector2i(5, 5), Vector2i(7, 8)),
+		"blast radius is round")
+	var mush := Mushroom.new()
+	fails += _expect(not mush.needs_heal(), "a whole mushroom needs no regrowing")
+	mush.hit()
+	fails += _expect(mush.needs_heal(), "a damaged mushroom regrows")
+	mush.heal()
+	fails += _expect(mush.hp == Mushroom.MAX_HP and not mush.needs_heal(), "heal() restores it")
+	mush.poison()
+	fails += _expect(mush.needs_heal(), "a poisoned mushroom regrows")
+	mush.make_ddt()
+	fails += _expect(mush.ddt and mush.hit() and not mush.needs_heal(), "a DDT bomb goes off with one hit and is never healed")
+	mush.poison()
+	fails += _expect(not mush.poisoned, "a DDT bomb can't be poisoned")
+	mush.free()
+
 	if fails == 0:
 		print("_selftest: all checks passed")
 	else:
