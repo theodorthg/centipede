@@ -23,6 +23,7 @@ var _other: Label                 ## second score line: the other player / the o
 var _prefix := ""
 var _other_lives := -1            ## reserve shown bottom-right (-1 = hidden)
 var _other_tag := ""
+var _other_text := ""
 var _wave: Label
 var _pause_btn: Button
 var _mute_btn: Button
@@ -64,9 +65,14 @@ func _ready() -> void:
 	add_child(_wave)
 
 	_pause_btn = Button.new()
+	# explicit offsets from the right edge: assigning `position` under a right
+	# anchor while the parent still had size 0 pushed the buttons off-screen
+	# on portrait phones (the whole root is full-rect there)
 	_pause_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_pause_btn.position = Vector2(DESIGN_WIDTH - BTN_MARGIN - BTN_SIZE, BTN_MARGIN)
-	_pause_btn.size = Vector2(BTN_SIZE, BTN_SIZE)
+	_pause_btn.offset_left = -BTN_MARGIN - BTN_SIZE
+	_pause_btn.offset_right = -BTN_MARGIN
+	_pause_btn.offset_top = BTN_MARGIN
+	_pause_btn.offset_bottom = BTN_MARGIN + BTN_SIZE
 	_pause_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_btn.focus_mode = Control.FOCUS_NONE
 	_pause_btn.text = "II"
@@ -77,8 +83,10 @@ func _ready() -> void:
 
 	_mute_btn = Button.new()
 	_mute_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_mute_btn.position = Vector2(DESIGN_WIDTH - BTN_MARGIN * 2 - BTN_SIZE * 2, BTN_MARGIN)
-	_mute_btn.size = Vector2(BTN_SIZE, BTN_SIZE)
+	_mute_btn.offset_left = -BTN_MARGIN * 2 - BTN_SIZE * 2
+	_mute_btn.offset_right = -BTN_MARGIN * 2 - BTN_SIZE
+	_mute_btn.offset_top = BTN_MARGIN
+	_mute_btn.offset_bottom = BTN_MARGIN + BTN_SIZE
 	_mute_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	_mute_btn.focus_mode = Control.FOCUS_NONE
 	_mute_btn.text = ""
@@ -124,14 +132,18 @@ func set_prefix(p: String) -> void:
 ## Second line under the score: the player waiting for their turn, or the
 ## online opponent. `text` == "" hides it.
 func set_other(text: String) -> void:
-	_other.visible = text != ""
-	_other.text = text
+	_other_text = text
+	_refresh_other()
 
-## Reserve of the other player/opponent, bottom-right ("P2  x2"); n < 0 hides.
+func _refresh_other() -> void:
+	_other.visible = _other_text != ""
+	_other.text = _other_text + (("  x%d" % maxi(_other_lives - 1, 0)) if _other_lives >= 0 else "")
+
+## Reserve of the other player/opponent, appended to their score line ("P2  001200  x2"); n < 0 hides.
 func set_other_lives(tag: String, n: int) -> void:
 	_other_tag = tag
 	_other_lives = n
-	queue_redraw()
+	_refresh_other()
 
 func set_wave(n: int) -> void:
 	_wave.text = "WAVE %d" % n
@@ -201,11 +213,6 @@ func _draw() -> void:
 		var f := ThemeDB.fallback_font
 		draw_string(f, Vector2(14.0 + ICON_H + 8.0, y + ICON_H * 0.8), "x %d" % reserve,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
-	if _other_lives >= 0:
-		var f2 := ThemeDB.fallback_font
-		var txt := "%s  x%d" % [_other_tag, maxi(_other_lives - 1, 0)]
-		draw_string(f2, Vector2(DESIGN_WIDTH - 14.0 - 130.0, y + ICON_H * 0.8), txt,
-			HORIZONTAL_ALIGNMENT_RIGHT, 130.0, 18, Color(1, 1, 1, 0.6))
 
 func _draw_ship_icon(center: Vector2) -> void:
 	var r := ICON_H * 0.5
