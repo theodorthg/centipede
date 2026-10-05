@@ -45,6 +45,7 @@ Gemeinsam für die Serie (Vorlage: mario-clone v1.6–v1.9):
 
 ## Erledigt
 
+- [x] 2026-10-05 v1.1.0 released: 2 Spieler abwechselnd, LAN-/Online-Duell, Pilzfeld bleibt, Wellenaufbau wie im Original, DDT-Bomben. GitHub-Release + itch.io (linux/android/web/windows, `theodorthg/centipede-clone`), Handy CPH2581 installiert; Duell Handy <-> PC über broesel.net getestet. Dabei gefunden/behoben: Pause/Mute fehlten auf Hochformat-Handys (HUD-Offsets). Offen: RG552 war beim Release nicht verbunden — APK dort noch installieren.
 - [x] 2026-09-29 itch.io jetzt per `butler` in die Channels linux / android / windows / web (`theodorthg/centipede-clone`, wie bei mario-clone); Patch-Release v1.0.1: Stand seit v1.0.0 (Splash mit Ladebalken, Cover-Art, App-Icons, weißer Android-Startbildschirm) — damit Windows-Release und itch.io aktuell sind.
 - [x] 2026-09-27 Android-System-Startbildschirm (vor dem Splash) einheitlich
       reines Weiß: `splash_screen/icon` = transparentes
