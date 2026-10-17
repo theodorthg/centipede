@@ -38,3 +38,7 @@ Claude Code transcript*.html
 # the public GitHub repo.
 Centipede-arcade-flyer.jpg
 Centipede-arcade-flyer.jpg.import
+
+# Signing keys never belong in the repo (release key was leaked 2026-10, replaced)
+*.keystore
+*.jks
